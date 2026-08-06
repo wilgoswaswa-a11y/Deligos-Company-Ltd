@@ -14,11 +14,13 @@
         html, body { width: 100%; min-height: 100%; }
         body { padding-top: 120px; overflow-x: hidden; padding-bottom: 3rem; }
         img, svg, canvas, video { max-width: 100%; height: auto; }
-        .navbar { background: #2c3e50; min-height: 70px; }
+        .navbar { background: #2c3e50; min-height: 70px; padding: 0.75rem 1rem; }
         .navbar-brand, .nav-link { color: #fff !important; }
-        .navbar-brand { display: flex; align-items: center; gap: 12px; font-size: clamp(0.9rem, 1.8vw, 1.05rem); font-weight: 700; line-height: 1.2; white-space: normal; }
+        .navbar-brand { display: flex; align-items: center; gap: 12px; font-size: clamp(0.9rem, 1.8vw, 1.05rem); font-weight: 700; line-height: 1.2; white-space: normal; flex: 1 1 auto; min-width: 0; margin-right: 0.75rem; }
         .navbar-logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 6px; padding: 5px; flex-shrink: 0; }
         .navbar-profile-photo { width: 26px; height: 26px; object-fit: cover; border-radius: 50%; border: 1px solid rgba(255,255,255,.6); }
+        .navbar-toggler { border: 1px solid rgba(255,255,255,.35); padding: 0.35rem 0.5rem; flex-shrink: 0; }
+        .navbar-toggler:focus { box-shadow: none; }
         .app-layout { display: flex; min-height: calc(100vh - 56px); }
         .sidebar { width: 260px; background: #1f2937; color: #fff; position: fixed; top: 56px; bottom: 0; left: 0; padding: 1rem 0; overflow-y: auto; }
         .sidebar-brand { padding: 0 1.25rem; margin-bottom: 1.25rem; font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -72,11 +74,14 @@
             h1, .h1 { font-size: 1.75rem; }
             h2, .h2 { font-size: 1.5rem; }
             h3, .h3 { font-size: 1.25rem; }
-            .navbar .container-fluid { padding-inline: 12px; }
-            .navbar-collapse { max-height: calc(100vh - 56px); overflow-y: auto; }
+            .navbar { min-height: 60px; }
+            .navbar .container-fluid { padding-inline: 12px; align-items: center; }
+            .navbar-collapse { max-height: calc(100vh - 80px); overflow-y: auto; background: #2c3e50; padding: 0.75rem 0.5rem 1rem; border-top: 1px solid rgba(255,255,255,.12); margin-top: 0.5rem; border-radius: 0 0 8px 8px; }
+            .navbar-collapse .nav-link { padding: 0.7rem 0.75rem; border-radius: 6px; }
+            .navbar-collapse .nav-link:hover { background: rgba(255,255,255,.12); }
             .navbar-text { display: block; margin: 8px 0 !important; }
             .navbar .btn { width: 100%; margin: 4px 0 !important; }
-            .navbar-brand { gap: 0.6rem; }
+            .navbar-brand { gap: 0.6rem; font-size: 0.88rem; }
             .navbar-logo { width: 44px; height: 44px; }
             .app-shell { padding: 12px; }
             .topbar { padding: 0.75rem; }
