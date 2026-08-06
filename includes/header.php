@@ -11,10 +11,11 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
+        :root { --app-navy: #203247; --app-sidebar: #182536; --app-sidebar-hover: #2d4863; --app-text: #17202a; --app-surface-muted: #f2f5f8; }
         html, body { width: 100%; min-height: 100%; }
-        body { padding-top: 120px; overflow-x: hidden; padding-bottom: 3rem; }
+        body { padding-top: 120px; overflow-x: hidden; padding-bottom: 3rem; color: var(--app-text); background: #f7f9fb; }
         img, svg, canvas, video { max-width: 100%; height: auto; }
-        .navbar { background: #2c3e50; min-height: 70px; padding: 0.75rem 1rem; }
+        .navbar { background: var(--app-navy); min-height: 70px; padding: 0.75rem 1rem; }
         .navbar-brand, .nav-link { color: #fff !important; }
         .navbar-brand { display: flex; align-items: center; gap: 12px; font-size: clamp(0.9rem, 1.8vw, 1.05rem); font-weight: 700; line-height: 1.2; white-space: normal; flex: 1 1 auto; min-width: 0; margin-right: 0.75rem; }
         .navbar-logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 6px; padding: 5px; flex-shrink: 0; }
@@ -22,11 +23,13 @@
         .navbar-toggler { border: 1px solid rgba(255,255,255,.35); padding: 0.35rem 0.5rem; flex-shrink: 0; }
         .navbar-toggler:focus { box-shadow: none; }
         .app-layout { display: flex; min-height: calc(100vh - 56px); }
-        .sidebar { width: 260px; background: #1f2937; color: #fff; position: fixed; top: 56px; bottom: 0; left: 0; padding: 1rem 0; overflow-y: auto; }
+        .sidebar { width: 260px; background: var(--app-sidebar); color: #fff; position: fixed; top: 56px; bottom: 0; left: 0; padding: 1rem 0; overflow-y: auto; }
         .sidebar-brand { padding: 0 1.25rem; margin-bottom: 1.25rem; font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         .sidebar-gap { height: 1.25rem; }
         .sidebar .nav-link { color: rgba(255,255,255,.85); padding: 0.75rem 1.25rem; }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,.08); }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: var(--app-sidebar-hover); }
+        .sidebar .nav-link.active { border-left: 4px solid #f5b700; padding-left: calc(1.25rem - 4px); font-weight: 700; }
+        .nav-section { padding: 1rem 1.25rem 0.4rem; color: #aebdcd; font-size: 0.7rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
         .sidebar-footer { padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); margin-top: 1rem; }
         .main-content { margin-left: 260px; width: calc(100% - 260px); padding-top: 1rem; overflow-x: hidden; }
         .topbar { background: #fff; border-bottom: 1px solid #e9ecef; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; position: fixed; top: 72px; left: 260px; right: 0; z-index: 1100; flex-wrap: wrap; }
@@ -35,17 +38,24 @@
         .profile-thumb { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 1px solid #dee2e6; }
         .profile-thumb-icon { width: 42px; height: 42px; border-radius: 50%; background: #6c757d; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
         .sidebar .nav-link .bi { margin-right: 0.5rem; }
+        @media (min-width: 992px) {
+            body { padding-top: 152px; }
+            .navbar { height: 80px; }
+            .sidebar { top: 80px; }
+            .topbar { top: 80px; }
+        }
         @media (max-width: 991.98px) {
             body { padding-top: 84px; }
             .sidebar { display: none; }
             .main-content { margin-left: 0; width: 100%; padding-top: 0; }
             .topbar { position: static; width: auto; margin-bottom: 0; padding: 0.85rem 1rem; }
-            .mobile-sidebar { width: min(82vw, 320px); background: #1f2937; color: #fff; }
+            .mobile-sidebar { width: min(82vw, 320px); background: var(--app-sidebar); color: #fff; }
             .mobile-sidebar .offcanvas-header { border-bottom: 1px solid rgba(255,255,255,.12); }
             .mobile-sidebar .offcanvas-title { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; }
             .mobile-sidebar .offcanvas-body { padding: 0.75rem 0 1.25rem; }
             .mobile-sidebar .nav-link { color: rgba(255,255,255,.88); padding: 0.8rem 1.25rem; }
             .mobile-sidebar .nav-link:hover, .mobile-sidebar .nav-link:focus { color: #fff; background: rgba(255,255,255,.1); }
+            .mobile-sidebar .nav-link.active { border-left: 4px solid #f5b700; padding-left: calc(1.25rem - 4px); font-weight: 700; }
             .mobile-sidebar .nav-link .bi { width: 1.35rem; margin-right: 0.45rem; }
             .mobile-sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); margin-top: 0.75rem; padding-top: 0.75rem; }
         }
@@ -59,15 +69,26 @@
         .table-responsive { margin-top: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .container-fluid, .row, .row > * { min-width: 0; }
         .card { max-width: 100%; min-width: 0; }
+        .card-header { background: var(--app-surface-muted); color: var(--app-text); font-weight: 600; }
         .card-body {
             overflow-x: auto;
             padding: 1rem;
         }
-        .card-header {
-            padding: 0.9rem 1rem;
-        }
+        .card-header { padding: 0.9rem 1rem; }
         .table { min-width: max-content; margin-bottom: 0; }
         .table th, .table td { vertical-align: middle; white-space: nowrap; }
+        .table thead th { background: #e8eef5; color: var(--app-text); }
+        .dashboard-summary-card.bg-warning, .dashboard-summary-card.bg-warning .card-body { color: #1d2733 !important; }
+        .is-loading { pointer-events: none; opacity: .8; }
+        .btn .spinner-border { vertical-align: -0.15em; }
+        @media print {
+            body { padding: 0 !important; background: #fff !important; color: #000 !important; }
+            .navbar, .sidebar, .topbar, .offcanvas, #site-footer, .d-print-none { display: none !important; }
+            .main-content { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            .app-shell { padding: 0 !important; }
+            .card, .table { border-color: #555 !important; }
+            .table thead th { background: #eee !important; color: #000 !important; }
+        }
         .row { --bs-gutter-y: 1rem; }
         .pos-cart { background: #f8f9fa; padding: 1.25rem; border-radius: 8px; }
         .receipt { font-family: monospace; }
@@ -82,9 +103,9 @@
             h1, .h1 { font-size: 1.7rem; }
             h2, .h2 { font-size: 1.4rem; }
             h3, .h3 { font-size: 1.2rem; }
-            .navbar { min-height: 60px; padding: 0.65rem 0.8rem; }
+            .navbar { height: 72px; min-height: 72px; padding: 0.65rem 0.8rem; }
             .navbar .container-fluid { padding-inline: 10px; align-items: center; }
-            .navbar-brand { gap: 0.55rem; font-size: 0.86rem; }
+            .navbar-brand { gap: 0.55rem; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .navbar-logo { width: 42px; height: 42px; }
             .app-shell { padding: 10px; }
             .topbar { padding: 0.7rem; gap: 0.6rem; }
@@ -108,6 +129,12 @@
     </style>
 </head>
 <body>
+<?php
+$currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
+$navLinkClass = static function (string $page) use ($currentPage): string {
+    return 'nav-link' . ($currentPage === $page ? ' active' : '');
+};
+?>
 <div class="toast-container position-fixed top-0 end-0 p-3 app-toast-container" id="appToastContainer"></div>
 <nav class="navbar navbar-dark fixed-top navbar-expand-lg">
     <div class="container-fluid">
@@ -124,20 +151,24 @@
     </div>
     <div class="offcanvas-body">
         <nav class="nav flex-column">
-            <a class="nav-link" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
-            <a class="nav-link" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
-            <a class="nav-link" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
-            <a class="nav-link" href="customers.php"><i class="bi bi-people"></i> Customers</a>
-            <a class="nav-link" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <div class="nav-section">Operations</div>
+            <a class="<?= $navLinkClass('dashboard.php') ?>" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="<?= $navLinkClass('sales.php') ?>" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
+            <div class="nav-section">Catalog</div>
+            <a class="<?= $navLinkClass('inventory.php') ?>" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
+            <a class="<?= $navLinkClass('customers.php') ?>" href="customers.php"><i class="bi bi-people"></i> Customers</a>
+            <div class="nav-section">Insights</div>
+            <a class="<?= $navLinkClass('reports.php') ?>" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
             <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
-            <a class="nav-link" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
-            <a class="nav-link" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
-            <a class="nav-link" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
-            <a class="nav-link" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
+            <a class="<?= $navLinkClass('profits.php') ?>" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
+            <a class="<?= $navLinkClass('commissions.php') ?>" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
+            <a class="<?= $navLinkClass('expenses.php') ?>" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
+            <div class="nav-section">Administration</div>
+            <a class="<?= $navLinkClass('users.php') ?>" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
             <?php endif; ?>
         </nav>
         <div class="mobile-sidebar-footer">
-            <a class="nav-link" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
+            <a class="<?= $navLinkClass('profile.php') ?>" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
             <a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
         </div>
     </div>
@@ -146,20 +177,24 @@
     <aside class="sidebar">
         <div class="sidebar-gap" aria-hidden="true"></div>
         <nav class="nav flex-column">
-            <a class="nav-link" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
-            <a class="nav-link" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
-            <a class="nav-link" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
-            <a class="nav-link" href="customers.php"><i class="bi bi-people"></i> Customers</a>
-            <a class="nav-link" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <div class="nav-section">Operations</div>
+            <a class="<?= $navLinkClass('dashboard.php') ?>" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="<?= $navLinkClass('sales.php') ?>" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
+            <div class="nav-section">Catalog</div>
+            <a class="<?= $navLinkClass('inventory.php') ?>" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
+            <a class="<?= $navLinkClass('customers.php') ?>" href="customers.php"><i class="bi bi-people"></i> Customers</a>
+            <div class="nav-section">Insights</div>
+            <a class="<?= $navLinkClass('reports.php') ?>" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
             <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
-            <a class="nav-link" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
-            <a class="nav-link" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
-            <a class="nav-link" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
-            <a class="nav-link" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
+            <a class="<?= $navLinkClass('profits.php') ?>" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
+            <a class="<?= $navLinkClass('commissions.php') ?>" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
+            <a class="<?= $navLinkClass('expenses.php') ?>" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
+            <div class="nav-section">Administration</div>
+            <a class="<?= $navLinkClass('users.php') ?>" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
             <?php endif; ?>
         </nav>
         <div class="sidebar-footer">
-            <a class="nav-link" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
+            <a class="<?= $navLinkClass('profile.php') ?>" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
             <a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
         </div>
     </aside>

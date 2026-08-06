@@ -19,14 +19,36 @@ include 'includes/header.php';
 ?>
 <style>
 @media (max-width: 575.98px) {
+    .dashboard-summary-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        margin-right: -10px;
+        padding-right: 10px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+    .dashboard-summary-row > [class*="col-"] {
+        flex: 0 0 min(72vw, 230px);
+        width: min(72vw, 230px);
+    }
     .dashboard-summary-card { margin-bottom: 0.6rem !important; }
     .dashboard-summary-card .card-body { padding: 0.75rem !important; }
     .dashboard-summary-card .card-title { font-size: 1rem !important; margin-bottom: 0.3rem !important; }
     .dashboard-summary-card .display-6 { font-size: 2rem !important; }
 }
 </style>
-<h2>Dashboard</h2>
-<div class="row g-3 mt-4">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h2 class="mb-0">Dashboard</h2>
+    <div class="d-flex flex-wrap gap-2 dashboard-quick-actions">
+        <a class="btn btn-primary" href="sales.php"><i class="bi bi-plus-circle"></i> New Sale</a>
+        <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
+        <a class="btn btn-success" href="inventory.php"><i class="bi bi-box-seam"></i> Add Product</a>
+        <?php endif; ?>
+        <a class="btn btn-outline-primary" href="reports.php"><i class="bi bi-bar-chart-line"></i> View Reports</a>
+    </div>
+</div>
+<div class="row g-3 mt-4 dashboard-summary-row">
     <div class="col-12 col-sm-6 col-lg-3">
         <div class="card dashboard-summary-card text-white bg-primary mb-3 h-100">
             <div class="card-body">
