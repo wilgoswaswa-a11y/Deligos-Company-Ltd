@@ -26,18 +26,6 @@ include 'includes/header.php';
 }
 </style>
 <h2>Dashboard</h2>
-<?php
-    $lastLoginText = 'Unknown';
-    if (!empty($_SESSION['last_login'])) {
-        $lastLoginRaw = $_SESSION['last_login'];
-        $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $lastLoginRaw);
-        if (!$dateTime) {
-            $dateTime = date_create($lastLoginRaw);
-        }
-        $lastLoginText = $dateTime ? $dateTime->format('F j, Y H:i') : $lastLoginRaw;
-    }
-?>
-<div class="mb-2"><small class="text-muted">Last login: <strong><?= htmlspecialchars($lastLoginText) ?></strong></small></div>
 <div class="row g-3 mt-4">
     <div class="col-12 col-sm-6 col-lg-3">
         <div class="card dashboard-summary-card text-white bg-primary mb-3 h-100">

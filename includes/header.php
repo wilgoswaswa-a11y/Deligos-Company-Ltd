@@ -36,10 +36,18 @@
         .profile-thumb-icon { width: 42px; height: 42px; border-radius: 50%; background: #6c757d; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
         .sidebar .nav-link .bi { margin-right: 0.5rem; }
         @media (max-width: 991.98px) {
+            body { padding-top: 84px; }
             .sidebar { display: none; }
-            .topbar { left: 0; width: 100%; top: 72px; }
-            .main-content { margin-left: 0; width: 100%; padding-top: 1rem; }
-            body { padding-top: 120px; }
+            .main-content { margin-left: 0; width: 100%; padding-top: 0; }
+            .topbar { position: static; width: auto; margin-bottom: 0; padding: 0.85rem 1rem; }
+            .mobile-sidebar { width: min(82vw, 320px); background: #1f2937; color: #fff; }
+            .mobile-sidebar .offcanvas-header { border-bottom: 1px solid rgba(255,255,255,.12); }
+            .mobile-sidebar .offcanvas-title { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; }
+            .mobile-sidebar .offcanvas-body { padding: 0.75rem 0 1.25rem; }
+            .mobile-sidebar .nav-link { color: rgba(255,255,255,.88); padding: 0.8rem 1.25rem; }
+            .mobile-sidebar .nav-link:hover, .mobile-sidebar .nav-link:focus { color: #fff; background: rgba(255,255,255,.1); }
+            .mobile-sidebar .nav-link .bi { width: 1.35rem; margin-right: 0.45rem; }
+            .mobile-sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); margin-top: 0.75rem; padding-top: 0.75rem; }
         }
         .app-shell {
             width: 100%;
@@ -70,29 +78,27 @@
         .app-toast-container { z-index: 1080; }
         .app-toast { min-width: 280px; box-shadow: 0 0.75rem 1.5rem rgba(0,0,0,.18); }
         @media (max-width: 767.98px) {
-            body { padding-top: 150px; padding-bottom: 4rem; }
-            h1, .h1 { font-size: 1.75rem; }
-            h2, .h2 { font-size: 1.5rem; }
-            h3, .h3 { font-size: 1.25rem; }
-            .navbar { min-height: 60px; }
-            .navbar .container-fluid { padding-inline: 12px; align-items: center; }
-            .navbar-collapse { max-height: calc(100vh - 80px); overflow-y: auto; background: #2c3e50; padding: 0.75rem 0.5rem 1rem; border-top: 1px solid rgba(255,255,255,.12); margin-top: 0.5rem; border-radius: 0 0 8px 8px; }
-            .navbar-collapse .nav-link { padding: 0.7rem 0.75rem; border-radius: 6px; }
-            .navbar-collapse .nav-link:hover { background: rgba(255,255,255,.12); }
-            .navbar-text { display: block; margin: 8px 0 !important; }
-            .navbar .btn { width: 100%; margin: 4px 0 !important; }
-            .navbar-brand { gap: 0.6rem; font-size: 0.88rem; }
-            .navbar-logo { width: 44px; height: 44px; }
-            .app-shell { padding: 12px; }
-            .topbar { padding: 0.75rem; }
+            body { padding-top: 72px; padding-bottom: 4rem; }
+            h1, .h1 { font-size: 1.7rem; }
+            h2, .h2 { font-size: 1.4rem; }
+            h3, .h3 { font-size: 1.2rem; }
+            .navbar { min-height: 60px; padding: 0.65rem 0.8rem; }
+            .navbar .container-fluid { padding-inline: 10px; align-items: center; }
+            .navbar-brand { gap: 0.55rem; font-size: 0.86rem; }
+            .navbar-logo { width: 42px; height: 42px; }
+            .app-shell { padding: 10px; }
+            .topbar { padding: 0.7rem; gap: 0.6rem; }
+            .topbar-info strong, .topbar-profile strong { font-size: 0.95rem; }
             .topbar-profile { width: 100%; justify-content: space-between; }
+            .card { border-radius: 0.7rem; }
             .card-header { padding: 0.65rem 0.75rem; }
             .card-body { padding: 0.75rem; }
-            .display-6 { font-size: 1.75rem; overflow-wrap: anywhere; }
+            .display-6 { font-size: 1.6rem; overflow-wrap: anywhere; }
             .input-group { flex-wrap: nowrap; }
             .table { font-size: 0.92rem; }
             .table th, .table td { white-space: normal; }
             .btn { white-space: normal; }
+            .btn-sm { padding: 0.35rem 0.6rem; font-size: 0.85rem; }
             #searchResults .d-flex { align-items: stretch !important; flex-direction: column; }
             #searchResults .btn { width: 100%; }
             #completeSaleBtn, #clearCartBtn { flex: 1 1 160px; }
@@ -106,30 +112,36 @@
 <nav class="navbar navbar-dark fixed-top navbar-expand-lg">
     <div class="container-fluid">
         <a class="navbar-brand" href="dashboard.php"><img src="assets/DELIGOS%20LOGO.png" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POINT OF SALES (POS)</a>
-        <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mobileNav" aria-controls="mobileNav" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open navigation menu">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse d-lg-none" id="mobileNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item d-lg-none"><a class="nav-link" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="sales.php"><i class="bi bi-basket3"></i> Sales</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="customers.php"><i class="bi bi-people"></i> Customers</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a></li>
-                <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="users.php"><i class="bi bi-people-fill"></i> Users</a></li>
-                <?php endif; ?>
-            </ul>
-            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                <li class="nav-item d-lg-none"><a class="nav-link" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a></li>
-                <li class="nav-item d-lg-none"><a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-            </ul>
-        </div>
     </div>
 </nav>
+<aside class="offcanvas offcanvas-start mobile-sidebar d-lg-none" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
+    <div class="offcanvas-header">
+        <h2 class="offcanvas-title" id="mobileSidebarLabel">Navigation</h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <nav class="nav flex-column">
+            <a class="nav-link" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="nav-link" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
+            <a class="nav-link" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
+            <a class="nav-link" href="customers.php"><i class="bi bi-people"></i> Customers</a>
+            <a class="nav-link" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
+            <a class="nav-link" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
+            <a class="nav-link" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
+            <a class="nav-link" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
+            <a class="nav-link" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
+            <?php endif; ?>
+        </nav>
+        <div class="mobile-sidebar-footer">
+            <a class="nav-link" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
+            <a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
+        </div>
+    </div>
+</aside>
 <div class="app-layout">
     <aside class="sidebar">
         <div class="sidebar-gap" aria-hidden="true"></div>
