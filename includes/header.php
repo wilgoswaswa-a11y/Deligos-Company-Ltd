@@ -48,8 +48,9 @@
             body { padding-top: 84px; }
             .sidebar { display: none; }
             .main-content { margin-left: 0; width: 100%; padding-top: 0; }
-            .topbar { position: static; width: auto; margin-bottom: 0; padding: 0.85rem 1rem; }
-            .mobile-sidebar { width: min(82vw, 320px); background: var(--app-sidebar); color: #fff; }
+            .topbar { position: static; z-index: auto; width: auto; margin-bottom: 0; padding: 0.85rem 1rem; }
+            .mobile-sidebar { --bs-offcanvas-zindex: 1200; width: min(82vw, 320px); background: var(--app-sidebar); color: #fff; }
+            .offcanvas-backdrop { z-index: 1190; }
             .mobile-sidebar .offcanvas-header { border-bottom: 1px solid rgba(255,255,255,.12); }
             .mobile-sidebar .offcanvas-title { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; }
             .mobile-sidebar .offcanvas-body { padding: 0.75rem 0 1.25rem; }
@@ -138,10 +139,10 @@ $navLinkClass = static function (string $page) use ($currentPage): string {
 <div class="toast-container position-fixed top-0 end-0 p-3 app-toast-container" id="appToastContainer"></div>
 <nav class="navbar navbar-dark fixed-top navbar-expand-lg">
     <div class="container-fluid">
-        <a class="navbar-brand" href="dashboard.php"><img src="assets/DELIGOS%20LOGO.png" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POINT OF SALES (POS)</a>
         <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open navigation menu">
             <span class="navbar-toggler-icon"></span>
         </button>
+        <a class="navbar-brand" href="dashboard.php"><img src="assets/DELIGOS%20LOGO.png" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POINT OF SALES (POS)</a>
     </div>
 </nav>
 <aside class="offcanvas offcanvas-start mobile-sidebar d-lg-none" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">

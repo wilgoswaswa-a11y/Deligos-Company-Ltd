@@ -81,3 +81,51 @@ document.querySelectorAll('.alert').forEach(alertBox => {
         }, false);
     });
 })();
+
+(() => {
+    const setButtonLoading = (button, label) => {
+        if (!button || button.dataset.loading === 'true') {
+            return;
+        }
+
+        button.dataset.loading = 'true';
+        button.dataset.originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${label}`;
+    };
+
+    document.querySelectorAll('form[data-loading-text]').forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                return;
+            }
+
+            const submitter = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+            if (!submitter || form.dataset.submitting === 'true') {
+                if (form.dataset.submitting === 'true') {
+                    event.preventDefault();
+                }
+                return;
+            }
+
+            form.dataset.submitting = 'true';
+            form.classList.add('is-loading');
+            setButtonLoading(submitter, form.dataset.loadingText || 'Saving…');
+        });
+    });
+
+    document.querySelectorAll('[data-loading-link]').forEach(link => {
+        link.addEventListener('click', () => {
+            if (link.dataset.loading === 'true') {
+                return;
+            }
+
+            link.dataset.loading = 'true';
+            link.setAttribute('aria-busy', 'true');
+            link.classList.add('is-loading');
+            link.dataset.originalHtml = link.innerHTML;
+            link.innerHTML = `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${link.dataset.loadingText || 'Loading…'}`;
+        });
+    });
+})();

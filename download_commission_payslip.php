@@ -18,12 +18,9 @@ if ($userId === null || $rate === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT
-            u.full_name,
-            u.username,
-            u.role,
-            COUNT(s.id) AS sale_count,
-            COALESCE(SUM(s.grand_total), 0) AS sales_total
+        "SELECT u.id, u.full_name, u.username, u.role,
+                COUNT(s.id) AS sale_count,
+                COALESCE(SUM(s.grand_total), 0) AS sales_total
          FROM users u
          LEFT JOIN sales s ON s.user_id = u.id AND DATE(s.sale_date) BETWEEN ? AND ?
          WHERE u.id = ?
@@ -42,135 +39,98 @@ try {
 
 $salesTotal = (float)$staff['sales_total'];
 $commission = round($salesTotal * ($rate / 100), 2);
-$referenceNumber = 'PAY-' . strtoupper(substr(md5($staff['username'] . $start . $end . $rate . $staff['full_name']), 0, 10));
+$referenceNumber = 'PAY-' . strtoupper(substr(md5($staff['username'] . $start . $end . $rate), 0, 10));
+$earnings = ['Sales commission (' . number_format($rate, 2) . '%)' => $commission];
+$deductions = ['No deductions recorded' => 0.00];
+$totalEarnings = array_sum($earnings);
+$totalDeductions = array_sum($deductions);
+$netPay = $totalEarnings - $totalDeductions;
+$payPeriod = date('F j, Y', strtotime($start)) . ' – ' . date('F j, Y', strtotime($end));
 
-$pageW = 612;
-$pageH = 792;
-$marginLeft = 72;
-$marginRight = 72;
-$marginTop = 72;
-$marginBottom = 54;
-$contentWidth = $pageW - $marginLeft - $marginRight;
-
-function payslip_pdf_text(string $text): string
+function payslip_money(float $amount): string
 {
-    $text = preg_replace('/[^\x20-\x7E]/', '', $text);
-    return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $text);
+    return 'KSh ' . number_format($amount, 2);
 }
-
-$logoPath = __DIR__ . '/assets/DELIGOS LOGO.jpg';
-if (!file_exists($logoPath)) {
-    $fallbackPath = __DIR__ . '/assets/DELIGOS LOGO.png';
-    if (file_exists($fallbackPath)) {
-        $logoPath = $fallbackPath;
-    }
-}
-$logoData = file_exists($logoPath) ? file_get_contents($logoPath) : false;
-$logoInfo = $logoData !== false ? @getimagesize($logoPath) : false;
-$hasLogo = $logoData !== false && $logoInfo && in_array($logoInfo['mime'] ?? '', ['image/jpeg', 'image/png'], true);
-
-$headerY = $pageH - $marginTop - 8;
-$lineGap = 18;
-$lines = [
-    ['DELIGOS COMPANY', 20, $marginLeft, $headerY],
-    ['COMMISSION PAYSLIP', 14, $marginLeft, $headerY - 28],
-    ['Generated: ' . date('Y-m-d H:i'), 9, $pageW - $marginRight - 140, $headerY - 6],
-    ['Reference: ' . $referenceNumber, 9, $marginLeft, $headerY - 44],
-    ['Staff member: ' . $staff['full_name'], 11, $marginLeft, $headerY - 80],
-    ['Username: ' . $staff['username'], 10, $marginLeft, $headerY - 100],
-    ['Role: ' . ucfirst($staff['role']), 10, $marginLeft, $headerY - 120],
-    ['Commission period: ' . $start . ' to ' . $end, 10, $marginLeft, $headerY - 140],
-    ['Completed sales: ' . (int)$staff['sale_count'], 11, $marginLeft, $headerY - 182],
-    ['Eligible sales total: KSh ' . number_format($salesTotal, 2), 11, $marginLeft, $headerY - 202],
-    ['Commission rate: ' . number_format($rate, 2) . '%', 11, $marginLeft, $headerY - 222],
-    ['COMMISSION PAYABLE: KSh ' . number_format($commission, 2), 15, $marginLeft, $headerY - 290],
-];
-
-$footerY = $marginBottom + 40;
-$footerLines = [
-    ['Prepared by', 10, $marginLeft, $footerY + 26],
-    ['________________________', 10, $marginLeft, $footerY + 8],
-    ['Approved by', 10, $marginLeft + 220, $footerY + 26],
-    ['________________________', 10, $marginLeft + 220, $footerY + 8],
-    ['Company Address: P.O. Box 1234, Nairobi, Kenya', 8, $marginLeft, $footerY - 16],
-    ['Contact: +254 700 000 000 | info@deligos.co.ke', 8, $marginLeft, $footerY - 32],
-];
-
-$content = sprintf(
-    "0.95 0.98 1 rg\n%d 700 %d 2 re f\n0.95 0.98 1 rg\n%d 425 %d 55 re f\n0.86 0.90 0.95 rg\n%d 492 %d 1 re f\n0.80 0.84 0.90 rg\n%d 96 %d 1 re f\n0.17 0.24 0.31 rg\n",
-    $marginLeft,
-    $contentWidth,
-    $marginLeft,
-    $contentWidth,
-    $marginLeft,
-    $contentWidth,
-    $marginLeft,
-    $contentWidth
-);
-
-if ($hasLogo) {
-    $content .= "q /WMLOGO gs\n";
-    $watermarkWidth = min(180, $contentWidth * 0.7);
-    $watermarkHeight = max(1, round($watermarkWidth * ($logoInfo[1] / $logoInfo[0])));
-    $watermarkX = ($pageW - $watermarkWidth) / 2;
-    $watermarkY = ($pageH - $watermarkHeight) / 2 - 20;
-    $content .= sprintf("q 0.906 0.423 -0.423 0.906 %.2f %.2f cm /Im1 Do Q\n", $watermarkX, $watermarkY);
-    $content .= "Q\n";
-
-    $headerLogoWidth = 70;
-    $headerLogoHeight = max(1, round($headerLogoWidth * ($logoInfo[1] / $logoInfo[0])));
-    $headerLogoX = $pageW - $marginRight - $headerLogoWidth;
-    $headerLogoY = $pageH - $marginTop - $headerLogoHeight;
-    $content .= "q {$headerLogoWidth} 0 0 {$headerLogoHeight} {$headerLogoX} {$headerLogoY} cm /Im1 Do Q\n";
-}
-
-$content .= "q /WMTEXT gs\n";
-$content .= "0.76 0.80 0.84 rg\n";
-$content .= "BT /F2 24 Tf 0.866 0.5 -0.5 0.866 140 360 Tm (" . payslip_pdf_text('DELIGOS COMPANY') . ") Tj ET\n";
-$content .= "Q\n";
-
-foreach ($lines as [$text, $size, $x, $y]) {
-    $content .= "BT /F1 {$size} Tf {$x} {$y} Td (" . payslip_pdf_text($text) . ") Tj ET\n";
-}
-
-foreach ($footerLines as [$text, $size, $x, $y]) {
-    $content .= "BT /F1 {$size} Tf {$x} {$y} Td (" . payslip_pdf_text($text) . ") Tj ET\n";
-}
-
-$objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> /ExtGState << /WMLOGO 6 0 R /WMTEXT 7 0 R /NORMAL 8 0 R >> /XObject << /Im1 9 0 R >> >> /Contents 10 0 R >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
-    '<< /Type /ExtGState /CA 0.12 /ca 0.12 >>',
-    '<< /Type /ExtGState /CA 0.08 /ca 0.08 >>',
-    '<< /Type /ExtGState /CA 1 /ca 1 >>',
-];
-
-if ($hasLogo) {
-    $objects[] = '<< /Type /XObject /Subtype /Image /Width ' . $logoInfo[0] . ' /Height ' . $logoInfo[1] . ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' . strlen($logoData) . " >>\nstream\n" . $logoData . "\nendstream";
-} else {
-    $objects[] = '<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length 0 >>\nstream\n\nendstream';
-}
-
-$objects[] = '<< /Length ' . strlen($content) . " >>\nstream\n" . $content . "endstream";
-
-$pdf = "%PDF-1.4\n";
-$offsets = [0];
-foreach ($objects as $index => $object) {
-    $offsets[] = strlen($pdf);
-    $pdf .= ($index + 1) . " 0 obj\n{$object}\nendobj\n";
-}
-$xref = strlen($pdf);
-$pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n";
-for ($index = 1; $index <= count($objects); $index++) {
-    $pdf .= sprintf("%010d 00000 n \n", $offsets[$index]);
-}
-$pdf .= "trailer\n<< /Size " . (count($objects) + 1) . " /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
-
-$filename = 'commission-payslip-' . preg_replace('/[^A-Za-z0-9_-]/', '-', $staff['username']) . '-' . $start . '-to-' . $end . '.pdf';
-header('Content-Type: application/pdf');
-header('Content-Disposition: attachment; filename="' . $filename . '"');
-header('Content-Length: ' . strlen($pdf));
-echo $pdf;
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commission Payslip – <?= htmlspecialchars($staff['full_name']) ?></title>
+<style>
+    :root { --navy: #203247; --ink: #17202a; --muted: #52606d; --line: #d9e1ea; --surface: #f3f6f9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; color: var(--ink); background: #edf1f5; font-family: "Segoe UI", Arial, sans-serif; }
+    .print-actions { max-width: 860px; margin: 0 auto 14px; text-align: right; }
+    .print-actions button { border: 0; border-radius: 5px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; padding: 9px 16px; }
+    .payslip { position: relative; max-width: 860px; margin: 0 auto; overflow: hidden; background: #fff; border-radius: 8px; box-shadow: 0 3px 16px rgba(23,32,42,.12); }
+    .watermark { position: absolute; top: 53%; left: 50%; z-index: 0; width: min(48%, 310px); opacity: .055; pointer-events: none; transform: translate(-50%, -50%); }
+    .payslip-header, .details, .tables, .summary, .footer { position: relative; z-index: 1; }
+    .payslip-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 24px 30px; color: #fff; background: var(--navy); }
+    .company { display: flex; align-items: center; gap: 14px; }
+    .company img { width: 54px; height: 54px; padding: 4px; object-fit: contain; border-radius: 6px; background: #fff; }
+    h1, h2, p { margin: 0; }
+    .company h1 { font-size: 20px; }
+    .company p, .payslip-title p { margin-top: 4px; color: rgba(255,255,255,.86); font-size: 13px; }
+    .payslip-title { text-align: right; }
+    .payslip-title h2 { font-size: 22px; letter-spacing: 1px; }
+    .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 28px; padding: 22px 30px; border-bottom: 1px solid var(--line); }
+    .detail { font-size: 14px; }
+    .detail strong { display: inline-block; min-width: 124px; color: var(--muted); }
+    .tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; padding: 22px 30px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { padding: 9px 10px; color: var(--ink); text-align: left; background: var(--surface); border-bottom: 2px solid var(--line); }
+    td { padding: 9px 10px; border-bottom: 1px solid #e6ebf0; }
+    th:last-child, td:last-child { text-align: right; }
+    .total-row td { border-top: 2px solid #bac6d2; border-bottom: 0; font-weight: 700; }
+    .summary { display: flex; justify-content: flex-end; padding: 0 30px 30px; }
+    .summary table { width: min(100%, 350px); }
+    .net-pay td { color: #fff; font-size: 16px; font-weight: 700; background: var(--navy); border: 0; }
+    .net-pay td:first-child { border-radius: 5px 0 0 5px; }
+    .net-pay td:last-child { border-radius: 0 5px 5px 0; }
+    .footer { padding: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; text-align: center; }
+    @media (max-width: 620px) { body { padding: 12px; } .payslip-header, .details, .tables { grid-template-columns: 1fr; } .payslip-header { align-items: flex-start; flex-direction: column; } .payslip-title { text-align: left; } .details, .tables { padding: 18px; } .summary { padding: 0 18px 18px; } }
+    @media print { body { padding: 0; background: #fff; } .print-actions { display: none; } .payslip { max-width: none; border-radius: 0; box-shadow: none; } }
+</style>
+</head>
+<body>
+<div class="print-actions"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+<main class="payslip">
+    <img class="watermark" src="assets/DELIGOS%20LOGO.png" alt="" aria-hidden="true">
+    <header class="payslip-header">
+        <div class="company">
+            <img src="assets/DELIGOS%20LOGO.png" alt="Deligos Company logo">
+            <div><h1>DELIGOS COMPANY</h1><p>Point of Sale System</p></div>
+        </div>
+        <div class="payslip-title"><h2>COMMISSION PAYSLIP</h2><p><?= htmlspecialchars($payPeriod) ?></p></div>
+    </header>
+    <section class="details" aria-label="Staff and pay period details">
+        <div class="detail"><strong>Staff member:</strong> <?= htmlspecialchars($staff['full_name']) ?></div>
+        <div class="detail"><strong>Employee ID:</strong> EMP-<?= str_pad((string)$staff['id'], 5, '0', STR_PAD_LEFT) ?></div>
+        <div class="detail"><strong>Username:</strong> <?= htmlspecialchars($staff['username']) ?></div>
+        <div class="detail"><strong>Role:</strong> <?= htmlspecialchars(ucfirst($staff['role'])) ?></div>
+        <div class="detail"><strong>Pay date:</strong> <?= htmlspecialchars(date('F j, Y')) ?></div>
+        <div class="detail"><strong>Reference:</strong> <?= htmlspecialchars($referenceNumber) ?></div>
+        <div class="detail"><strong>Completed sales:</strong> <?= (int)$staff['sale_count'] ?></div>
+        <div class="detail"><strong>Eligible sales:</strong> <?= payslip_money($salesTotal) ?></div>
+    </section>
+    <section class="tables">
+        <table aria-label="Earnings"><thead><tr><th>Earnings</th><th>Amount</th></tr></thead><tbody>
+            <?php foreach ($earnings as $label => $amount): ?><tr><td><?= htmlspecialchars($label) ?></td><td><?= payslip_money($amount) ?></td></tr><?php endforeach; ?>
+            <tr class="total-row"><td>Total earnings</td><td><?= payslip_money($totalEarnings) ?></td></tr>
+        </tbody></table>
+        <table aria-label="Deductions"><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody>
+            <?php foreach ($deductions as $label => $amount): ?><tr><td><?= htmlspecialchars($label) ?></td><td><?= payslip_money($amount) ?></td></tr><?php endforeach; ?>
+            <tr class="total-row"><td>Total deductions</td><td><?= payslip_money($totalDeductions) ?></td></tr>
+        </tbody></table>
+    </section>
+    <section class="summary"><table><tbody>
+        <tr><td>Gross commission</td><td><?= payslip_money($totalEarnings) ?></td></tr>
+        <tr><td>Total deductions</td><td>-<?= payslip_money($totalDeductions) ?></td></tr>
+        <tr class="net-pay"><td>Net payable</td><td><?= payslip_money($netPay) ?></td></tr>
+    </tbody></table></section>
+    <footer class="footer">This is a system-generated commission payslip and does not require a signature.</footer>
+</main>
+</body>
+</html>

@@ -8,7 +8,10 @@ $invoiceNo = generateInvoiceNo();
 $pageTitle = 'Point of Sale';
 include 'includes/header.php';
 ?>
-<h2>Point of Sale</h2>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0">Point of Sale</h2>
+    <a class="btn btn-outline-primary" href="inventory.php"><i class="bi bi-box-seam"></i> View Products</a>
+</div>
 <div class="row">
     <div class="col-lg-7">
         <div class="card mb-3">
@@ -666,6 +669,9 @@ $('#initiateLipanaBtn').on('click', async function() {
 $('#completeSaleBtn').on('click', async function() {
     if (cart.length === 0) { notify('Cart is empty!', 'warning'); return; }
 
+    const completeSaleButton = $(this);
+    if (completeSaleButton.data('submitting')) { return; }
+
     let customer_id = $('#customerSelect').val() || null;
     let discount = parseFloat($('#discountInput').val()) || 0;
     let grand_total = parseFloat($('#grandTotal').text()) || 0;
@@ -686,6 +692,18 @@ $('#completeSaleBtn').on('click', async function() {
         payment_method: payment_method,
         mpesa_code: $('#lipanaCode').val().trim() || null,
         items: cart.map(item => ({ product_id: item.id, qty: item.qty, unit_price: item.price }))
+    };
+
+    completeSaleButton.data('submitting', true)
+        .prop('disabled', true)
+        .attr('aria-busy', 'true')
+        .html('<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Completing sale…');
+
+    const restoreCompleteSaleButton = function() {
+        completeSaleButton.data('submitting', false)
+            .prop('disabled', false)
+            .removeAttr('aria-busy')
+            .html('<i class="bi bi-check-circle"></i> Complete Sale');
     };
 
     $.ajax({
@@ -716,11 +734,16 @@ $('#completeSaleBtn').on('click', async function() {
                 } else {
                     $('#viewStoredReceiptBtn').hide();
                 }
+                restoreCompleteSaleButton();
             } else {
                 notify('Error: ' + (res.message || 'Unknown error'), 'error');
+                restoreCompleteSaleButton();
             }
         },
-        error: function(){ notify('Server error.', 'error'); }
+        error: function(){
+            notify('Server error.', 'error');
+            restoreCompleteSaleButton();
+        }
     });
 });
 

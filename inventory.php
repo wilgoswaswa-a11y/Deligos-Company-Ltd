@@ -101,7 +101,7 @@ include 'includes/header.php';
             <div class="card-header"><?= $product_to_edit ? 'Edit Product' : 'Add Product' ?></div>
             <div class="card-body">
                 <?php if ($isAdmin): ?>
-                <form method="POST" class="needs-validation" novalidate>
+                <form method="POST" class="needs-validation" novalidate data-loading-text="Saving product…">
                     <?= csrf_field() ?>
                     <?php if ($product_to_edit): ?>
                         <input type="hidden" name="product_id" value="<?= (int)$product_to_edit['id'] ?>">

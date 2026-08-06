@@ -115,13 +115,13 @@ include 'includes/header.php';
                             <td class="text-end"><?= number_format($rate, 2) ?>%</td>
                             <td class="text-end fw-semibold">KSh <?= number_format($commission['commission_amount'], 2) ?></td>
                             <td class="text-end">
-                                <form method="POST" action="download_commission_payslip.php">
+                                <form method="POST" action="download_commission_payslip.php" target="_blank">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="user_id" value="<?= (int)$commission['id'] ?>">
                                     <input type="hidden" name="start" value="<?= htmlspecialchars($start) ?>">
                                     <input type="hidden" name="end" value="<?= htmlspecialchars($end) ?>">
                                     <input type="hidden" name="rate" value="<?= htmlspecialchars((string)$rate) ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Payslip</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-text"></i> View payslip</button>
                                 </form>
                             </td>
                         </tr>

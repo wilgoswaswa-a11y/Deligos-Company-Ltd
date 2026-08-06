@@ -294,11 +294,11 @@ $download_query = http_build_query([
     <h2 class="mb-0">Sales Reports</h2>
     <div class="d-flex gap-2 d-print-none">
         <button class="btn btn-secondary" onclick="window.print()" type="button"><i class="bi bi-printer"></i> Print</button>
-        <a class="btn btn-success" href="?<?= htmlspecialchars($download_query) ?>"><i class="bi bi-file-earmark-pdf"></i> Download PDF</a>
+        <a class="btn btn-success" data-loading-link data-loading-text="Preparing PDF…" href="?<?= htmlspecialchars($download_query) ?>"><i class="bi bi-file-earmark-pdf"></i> Download PDF</a>
     </div>
 </div>
 
-<form method="GET" class="row g-3 mb-3 d-print-none">
+<form method="GET" class="row g-3 mb-3 d-print-none" data-loading-text="Generating report…">
     <div class="col-auto"><label>From</label><input type="date" name="start" class="form-control" value="<?= htmlspecialchars($start) ?>"></div>
     <div class="col-auto"><label>To</label><input type="date" name="end" class="form-control" value="<?= htmlspecialchars($end) ?>"></div>
     <div class="col-auto">
@@ -342,4 +342,3 @@ $download_query = http_build_query([
     </table>
 </div>
 <?php include 'includes/footer.php'; ?>
-
