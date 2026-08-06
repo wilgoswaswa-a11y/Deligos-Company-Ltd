@@ -12,12 +12,12 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         html, body { width: 100%; min-height: 100%; }
-        body { padding-top: 120px; overflow-x: hidden; }
+        body { padding-top: 120px; overflow-x: hidden; padding-bottom: 3rem; }
         img, svg, canvas, video { max-width: 100%; height: auto; }
         .navbar { background: #2c3e50; min-height: 70px; }
         .navbar-brand, .nav-link { color: #fff !important; }
-        .navbar-brand { display: flex; align-items: center; gap: 12px; font-size: 1.05rem; font-weight: 700; }
-        .navbar-logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 6px; padding: 5px; }
+        .navbar-brand { display: flex; align-items: center; gap: 12px; font-size: clamp(0.9rem, 1.8vw, 1.05rem); font-weight: 700; line-height: 1.2; white-space: normal; }
+        .navbar-logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 6px; padding: 5px; flex-shrink: 0; }
         .navbar-profile-photo { width: 26px; height: 26px; object-fit: cover; border-radius: 50%; border: 1px solid rgba(255,255,255,.6); }
         .app-layout { display: flex; min-height: calc(100vh - 56px); }
         .sidebar { width: 260px; background: #1f2937; color: #fff; position: fixed; top: 56px; bottom: 0; left: 0; padding: 1rem 0; overflow-y: auto; }
@@ -26,10 +26,10 @@
         .sidebar .nav-link { color: rgba(255,255,255,.85); padding: 0.75rem 1.25rem; }
         .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,.08); }
         .sidebar-footer { padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); margin-top: 1rem; }
-        .main-content { margin-left: 260px; width: calc(100% - 260px); padding-top: 1rem; }
-        .topbar { background: #fff; border-bottom: 1px solid #e9ecef; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; position: fixed; top: 72px; left: 260px; right: 0; z-index: 1100; }
-        .topbar-info { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-        .topbar-profile { display: flex; align-items: center; gap: 0.75rem; }
+        .main-content { margin-left: 260px; width: calc(100% - 260px); padding-top: 1rem; overflow-x: hidden; }
+        .topbar { background: #fff; border-bottom: 1px solid #e9ecef; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; position: fixed; top: 72px; left: 260px; right: 0; z-index: 1100; flex-wrap: wrap; }
+        .topbar-info { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; min-width: 0; }
+        .topbar-profile { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; min-width: 0; }
         .profile-thumb { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 1px solid #dee2e6; }
         .profile-thumb-icon { width: 42px; height: 42px; border-radius: 50%; background: #6c757d; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
         .sidebar .nav-link .bi { margin-right: 0.5rem; }
@@ -43,10 +43,10 @@
             width: 100%;
             max-width: 100%;
             min-width: 0;
-            padding-inline: clamp(24px, 6vw, 96px);
-            padding-block: clamp(24px, 4vw, 48px);
+            padding-inline: clamp(0.75rem, 2vw, 1.5rem);
+            padding-block: clamp(1rem, 3vw, 1.5rem);
         }
-        .table-responsive { margin-top: 1.5rem; }
+        .table-responsive { margin-top: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .container-fluid, .row, .row > * { min-width: 0; }
         .card { max-width: 100%; min-width: 0; }
         .card-body {
@@ -58,7 +58,6 @@
         }
         .table { min-width: max-content; margin-bottom: 0; }
         .table th, .table td { vertical-align: middle; white-space: nowrap; }
-        .btn { white-space: nowrap; }
         .row { --bs-gutter-y: 1rem; }
         .pos-cart { background: #f8f9fa; padding: 1.25rem; border-radius: 8px; }
         .receipt { font-family: monospace; }
@@ -69,7 +68,7 @@
         .app-toast-container { z-index: 1080; }
         .app-toast { min-width: 280px; box-shadow: 0 0.75rem 1.5rem rgba(0,0,0,.18); }
         @media (max-width: 767.98px) {
-            body { padding-top: 138px; }
+            body { padding-top: 150px; padding-bottom: 4rem; }
             h1, .h1 { font-size: 1.75rem; }
             h2, .h2 { font-size: 1.5rem; }
             h3, .h3 { font-size: 1.25rem; }
@@ -77,12 +76,18 @@
             .navbar-collapse { max-height: calc(100vh - 56px); overflow-y: auto; }
             .navbar-text { display: block; margin: 8px 0 !important; }
             .navbar .btn { width: 100%; margin: 4px 0 !important; }
+            .navbar-brand { gap: 0.6rem; }
+            .navbar-logo { width: 44px; height: 44px; }
             .app-shell { padding: 12px; }
+            .topbar { padding: 0.75rem; }
+            .topbar-profile { width: 100%; justify-content: space-between; }
             .card-header { padding: 0.65rem 0.75rem; }
             .card-body { padding: 0.75rem; }
             .display-6 { font-size: 1.75rem; overflow-wrap: anywhere; }
             .input-group { flex-wrap: nowrap; }
             .table { font-size: 0.92rem; }
+            .table th, .table td { white-space: normal; }
+            .btn { white-space: normal; }
             #searchResults .d-flex { align-items: stretch !important; flex-direction: column; }
             #searchResults .btn { width: 100%; }
             #completeSaleBtn, #clearCartBtn { flex: 1 1 160px; }
