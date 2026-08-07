@@ -67,6 +67,10 @@
             padding-inline: clamp(0.75rem, 2vw, 1.5rem);
             padding-block: clamp(1rem, 3vw, 1.5rem);
         }
+        .app-shell > .row, .app-shell > .card, .app-shell > .d-flex, .app-shell > h1, .app-shell > h2, .app-shell > h3, .app-shell > h4 {
+            width: min(100%, 1440px);
+            margin-inline: auto;
+        }
         .table-responsive { margin-top: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .container-fluid, .row, .row > * { min-width: 0; }
         .card { max-width: 100%; min-width: 0; }
@@ -103,6 +107,27 @@
         .modal { z-index: 1300; }
         .app-toast-container { z-index: 1310; }
         .app-toast { min-width: 280px; box-shadow: 0 0.75rem 1.5rem rgba(0,0,0,.18); }
+        /* Responsive motion: compact screens use shorter travel distances so
+           animations remain natural without pushing content outside view. */
+        :root { --app-enter-y: clamp(8px, 1.8vw, 22px); --app-enter-scale: .985; --app-motion-speed: clamp(220ms, 0.5s, 320ms); }
+        .app-shell > * { animation: app-fluid-enter var(--app-motion-speed) ease-out both; }
+        .card { transition: transform var(--app-motion-speed) ease, box-shadow var(--app-motion-speed) ease; }
+        @media (hover: hover) and (pointer: fine) {
+            .card:hover { transform: translateY(-2px); box-shadow: 0 .6rem 1.35rem rgba(32, 50, 71, .10); }
+        }
+        .modal.show .modal-dialog { animation: app-modal-enter var(--app-motion-speed) cubic-bezier(.2, .8, .2, 1) both; }
+        .app-toast.showing, .app-toast.show { animation: app-toast-enter var(--app-motion-speed) ease-out both; }
+        @keyframes app-fluid-enter { 0% { opacity: 0; transform: translateY(var(--app-enter-y)) scale(var(--app-enter-scale)); } 65% { opacity: 1; transform: translateY(calc(var(--app-enter-y) * -.12)) scale(1); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes app-modal-enter { from { opacity: 0; transform: translateY(calc(var(--app-enter-y) * -1)) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes app-toast-enter { from { opacity: 0; transform: translateX(22px) scale(.96); } to { opacity: 1; transform: translateX(0) scale(1); } }
+        @media (max-width: 767.98px) {
+            :root { --app-enter-y: 8px; --app-enter-scale: .995; --app-motion-speed: 220ms; }
+            .app-toast.showing, .app-toast.show { animation-name: app-toast-enter-mobile; }
+            @keyframes app-toast-enter-mobile { from { opacity: 0; transform: translateY(-10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+        }
         @media (max-width: 767.98px) {
             body { padding-top: 72px; padding-bottom: 4rem; }
             h1, .h1 { font-size: 1.7rem; }
