@@ -37,7 +37,9 @@ if ($action === 'initiate_payment') {
             (int)$_SESSION['user_id'],
             $accountReference,
             normalize_lipana_phone($phone),
-            (float)$amount
+            (float)$amount,
+            trim((string)($result['transaction_id'] ?? '')),
+            trim((string)($result['checkout_request_id'] ?? ''))
         );
         if ($payloadToken === false) {
             $result['success'] = false;
@@ -48,6 +50,36 @@ if ($action === 'initiate_payment') {
     }
 
     echo json_encode($result);
+    exit;
+}
+
+if ($action === 'verify_payment') {
+    $invoiceNo = trim((string)($input['invoice_no'] ?? ($_POST['invoice_no'] ?? '')));
+    $payloadToken = trim((string)($input['payload_token'] ?? ($_POST['payload_token'] ?? '')));
+    $request = get_lipana_payment_request($pdo, $invoiceNo, $payloadToken);
+
+    if (!$request || (int)$request['user_id'] !== (int)$_SESSION['user_id']) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Payment request not found.']);
+        exit;
+    }
+
+    $transaction = lipana_find_transaction_for_request($request);
+    if (!empty($transaction) && lipana_transaction_is_successful($transaction, (float)$request['amount'])) {
+        update_lipana_payment_request_verification($pdo, $request['invoice_no'], $request['payload_token'], $transaction);
+        $request = get_lipana_payment_request($pdo, $request['invoice_no'], $request['payload_token']) ?: $request;
+    }
+
+    $verified = $request['status'] === 'completed';
+    echo json_encode([
+        'success' => true,
+        'verified' => $verified,
+        'status' => $request['status'],
+        'message' => $verified ? 'Payment verified successfully.' : 'Payment is still awaiting confirmation. Complete the prompt on the customer phone, then verify again.',
+        'mpesa_code' => $request['mpesa_code'] ?: null,
+        'customer_name' => $request['customer_name'] ?: null,
+        'customer_phone' => $request['customer_phone'] ?: $request['phone_number'],
+    ]);
     exit;
 }
 

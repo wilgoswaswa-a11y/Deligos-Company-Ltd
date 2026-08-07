@@ -107,13 +107,25 @@ include 'includes/header.php';
               <input type="number" id="lipanaAmount" class="form-control" min="1" step="1" readonly>
             </div>
             <div class="mb-3">
-              <label for="lipanaCode" class="form-label">MPESA Code</label>
-              <input type="text" id="lipanaCode" class="form-control" placeholder="Enter MPESA code">
+              <label for="lipanaReference" class="form-label">Payment Reference</label>
+              <input type="text" id="lipanaReference" class="form-control" readonly placeholder="Will be filled after sending the request">
+            </div>
+            <div id="lipanaVerification" class="alert alert-light border d-none mb-0" role="status" aria-live="polite">
+              <div id="lipanaVerificationMessage">Send the request, then verify it after the customer approves the M-Pesa prompt.</div>
+              <dl id="lipanaVerifiedDetails" class="row mb-0 mt-2 d-none">
+                <dt class="col-sm-5">M-Pesa code</dt><dd id="lipanaMpesaCode" class="col-sm-7 mb-1"></dd>
+                <dt class="col-sm-5">Customer</dt><dd id="lipanaCustomerName" class="col-sm-7 mb-1"></dd>
+                <dt class="col-sm-5">Phone</dt><dd id="lipanaCustomerPhone" class="col-sm-7 mb-0"></dd>
+              </dl>
+            </div>
+            <div class="mb-3">
+              <div class="text-muted">A Lipana STK prompt will be sent to the customer. Complete payment on their phone. The receipt reference will appear automatically.</div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="button" class="btn btn-primary" id="confirmLipanaBtn">Send Lipana Request</button>
+            <button type="button" class="btn btn-success d-none" id="verifyLipanaBtn">Verify Payment</button>
           </div>
         </div>
       </div>
@@ -152,7 +164,8 @@ include 'includes/header.php';
     </div>
 </div>
 
-<script>
+<!-- Legacy inline checkout script retained temporarily for source history; the maintained module below is active. -->
+<script type="text/plain">
 let cart = [];
 let invoiceNo = document.getElementById('invoiceDisplay').textContent;
 let lastReceiptData = null;
@@ -204,7 +217,7 @@ function getReceiptData() {
         cashier: $('#receiptCashier').text().trim(),
         discount,
         total,
-        mpesa_code: $('#lipanaCode').val().trim() || null,
+        mpesa_code: lipanaRequest?.checkout_request_id || lipanaRequest?.transaction_id || null,
         items: cart.map(item => ({
             name: item.name,
             qty: item.qty,
@@ -597,7 +610,7 @@ function updateLipanaFields() {
     $('#initiateLipanaBtn').toggle(isLipana);
     if (!isLipana) {
         $('#lipanaPhone').val('');
-        $('#lipanaCode').val('');
+        $('#lipanaReference').val('');
         lipanaRequest = null;
     }
 }
@@ -653,7 +666,14 @@ async function initiateLipanaPayment() {
         throw new Error(data.message || 'Lipana request failed.');
     }
 
-    lipanaRequest = { invoiceNo, amount };
+    lipanaRequest = {
+        invoiceNo,
+        amount,
+        payload_token: data.payload_token || null,
+        transaction_id: data.transaction_id || null,
+        checkout_request_id: data.checkout_request_id || null
+    };
+    $('#lipanaReference').val(data.checkout_request_id || data.transaction_id || '');
     return data;
 }
 
@@ -678,7 +698,7 @@ $('#completeSaleBtn').on('click', async function() {
     let payment_method = $('#paymentMethodSelect').val() || 'Cash';
 
     if (payment_method === 'Lipana') {
-        if (!lipanaRequest || lipanaRequest.invoiceNo !== invoiceNo || lipanaRequest.amount !== grand_total) {
+        if (!lipanaRequest || lipanaRequest.invoiceNo !== invoiceNo || lipanaRequest.amount !== grand_total || !lipanaRequest.payload_token) {
             notify('Send the Lipana payment prompt for this exact sale before completing it.', 'warning');
             return;
         }
@@ -690,8 +710,7 @@ $('#completeSaleBtn').on('click', async function() {
         discount: discount,
         grand_total: grand_total,
         payment_method: payment_method,
-        mpesa_code: $('#lipanaCode').val().trim() || null,
-        items: cart.map(item => ({ product_id: item.id, qty: item.qty, unit_price: item.price }))
+        payload_token: lipanaRequest?.payload_token || null,
     };
 
     completeSaleButton.data('submitting', true)
@@ -724,7 +743,7 @@ $('#completeSaleBtn').on('click', async function() {
                 $('#receiptInvoice').text(invoiceNo);
                 renderCart();
                 $('#discountInput').val(0);
-                $('#lipanaCode').val('');
+                $('#lipanaReference').val('');
                 $('#customerSelect').val('');
                 updateTotals();
                 renderReceiptData(lastReceiptData);
@@ -750,4 +769,6 @@ $('#completeSaleBtn').on('click', async function() {
 // Initial render
 renderCart();
 </script>
+<script>document.body.dataset.maxDiscountPercent = <?= json_encode(max_discount_percent()) ?>;</script>
+<script src="assets/sales.js"></script>
 <?php include 'includes/footer.php'; ?>

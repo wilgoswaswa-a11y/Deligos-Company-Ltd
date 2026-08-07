@@ -20,7 +20,6 @@ function get_lipana_config(): array
     } elseif ($environment === 'sandbox' && str_starts_with($baseUrl, 'https://api.lipana.dev')) {
         $baseUrl = 'https://api-sandbox.lipana.dev' . substr($baseUrl, strlen('https://api.lipana.dev'));
     } elseif (in_array($baseUrl, ['https://api.lipana.dev', 'https://api-sandbox.lipana.dev'], true)) {
-        // Compatibility with the earlier local configuration.
         $baseUrl .= '/v1';
     }
 
@@ -37,6 +36,8 @@ function get_lipana_config(): array
         'endpoint' => $endpoint,
         'environment' => $environment,
         'timeout' => (int)(env('LIPANA_TIMEOUT') ?: 60),
+        'webhook_secret' => (string)(env('LIPANA_WEBHOOK_SECRET') ?: ''),
+        'webhook_url' => (string)(env('LIPANA_WEBHOOK_URL') ?: ''),
     ];
 }
 
@@ -68,6 +69,79 @@ function validate_lipana_phone(string $phone): bool
     return preg_match('/^254[1-9]\d{8}$/', $normalized) === 1;
 }
 
+function lipana_api_request(string $method, string $path, ?array $body = null, array $query = []): array
+{
+    $config = get_lipana_config();
+    if ($config['api_key'] === '') {
+        return ['success' => false, 'message' => 'Lipana API key is not configured.'];
+    }
+
+    $url = rtrim($config['base_url'], '/') . '/' . ltrim($path, '/');
+    if (!empty($query)) {
+        $url .= '?' . http_build_query($query);
+    }
+
+    $headers = [
+        'x-api-key: ' . $config['api_key'],
+        'Accept: application/json',
+    ];
+
+    $curlOptions = [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => $config['timeout'],
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+    ];
+
+    if (in_array(strtoupper($method), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+        $headers[] = 'Content-Type: application/json';
+        $curlOptions[CURLOPT_CUSTOMREQUEST] = strtoupper($method);
+        $curlOptions[CURLOPT_POSTFIELDS] = json_encode($body ?? [], JSON_THROW_ON_ERROR);
+    }
+
+    $curlOptions[CURLOPT_HTTPHEADER] = $headers;
+    $ch = curl_init();
+    curl_setopt_array($ch, $curlOptions);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        app_log('Lipana API request failed: ' . $curlError . ' url=' . $url);
+        return ['success' => false, 'message' => 'Unable to reach the Lipana API. Please try again.'];
+    }
+
+    $payloadResponse = json_decode($response, true);
+    $success = $httpCode >= 200 && $httpCode < 300;
+    $providerMessage = '';
+    if (is_array($payloadResponse)) {
+        $providerMessage = (string)($payloadResponse['message'] ?? $payloadResponse['detail'] ?? '');
+        if ($providerMessage === '' && is_string($payloadResponse['error'] ?? null)) {
+            $providerMessage = $payloadResponse['error'];
+        }
+        if ($providerMessage === '' && isset($payloadResponse['error']['message'])) {
+            $providerMessage = (string)$payloadResponse['error']['message'];
+        }
+    }
+
+    if (!$success) {
+        app_log('Lipana API response: HTTP ' . $httpCode . ' ' . substr($response, 0, 2000));
+    }
+
+    return [
+        'success' => $success,
+        'http_code' => $httpCode,
+        'response' => $payloadResponse,
+        'message' => $success
+            ? 'Lipana API request succeeded.'
+            : ($providerMessage !== '' ? 'Lipana: ' . $providerMessage : 'Lipana API request failed.'),
+    ];
+}
+
 function lipana_stk_push(array $payload): array
 {
     $config = get_lipana_config();
@@ -75,6 +149,7 @@ function lipana_stk_push(array $payload): array
     $amount = (int)($payload['amount'] ?? 0);
     $accountReference = (string)($payload['account_reference'] ?? 'POS');
     $transactionDesc = (string)($payload['transaction_desc'] ?? 'POS payment');
+    $callbackUrl = trim((string)($payload['callback_url'] ?? ''));
 
     if ($config['api_key'] === '') {
         return ['success' => false, 'message' => 'Lipana API key is not configured.'];
@@ -96,57 +171,169 @@ function lipana_stk_push(array $payload): array
         'transactionDesc' => $transactionDesc,
     ];
 
-    $url = rtrim($config['base_url'], '/') . '/' . ltrim($config['endpoint'], '/');
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_HTTPHEADER => [
-        'x-api-key: ' . $config['api_key'],
-        'Content-Type: application/json',
-        'Accept: application/json',
-        ],
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode($body, JSON_THROW_ON_ERROR),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => $config['timeout'],
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-    ]);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    if ($response === false) {
-        app_log('Lipana STK request failed: ' . $curlError);
-        return ['success' => false, 'message' => 'Unable to reach the Lipana API. Please try again.'];
+    if ($callbackUrl !== '') {
+        $body['callbackUrl'] = $callbackUrl;
+    } elseif ($config['webhook_url'] !== '') {
+        $body['callbackUrl'] = $config['webhook_url'];
     }
 
-    $payloadResponse = json_decode($response, true);
-    $success = $httpCode < 400 && (!is_array($payloadResponse) || empty($payloadResponse['error']));
-    $providerMessage = '';
-    if (is_array($payloadResponse)) {
-        $providerMessage = (string)($payloadResponse['message'] ?? $payloadResponse['detail'] ?? '');
-        if ($providerMessage === '' && is_string($payloadResponse['error'] ?? null)) {
-            $providerMessage = $payloadResponse['error'];
-        }
-        if ($providerMessage === '' && isset($payloadResponse['error']['message'])) {
-            $providerMessage = (string)$payloadResponse['error']['message'];
-        }
-    }
-
-    if (!$success) {
-        app_log('Lipana STK response: HTTP ' . $httpCode . ' ' . substr($response, 0, 2000));
-    }
+    $result = lipana_api_request('POST', $config['endpoint'], $body);
+    $payloadResponse = $result['response'];
+    $data = is_array($payloadResponse) ? ($payloadResponse['data'] ?? []) : [];
 
     return [
-        'success' => $success,
-        'http_code' => $httpCode,
+        'success' => $result['success'],
+        'http_code' => $result['http_code'],
         'response' => $payloadResponse,
-        'message' => $success
+        'data' => $data,
+        'transaction_id' => is_string($data['transactionId'] ?? null) ? $data['transactionId'] : (string)($data['transaction_id'] ?? ''),
+        'checkout_request_id' => is_string($data['checkoutRequestID'] ?? null) ? $data['checkoutRequestID'] : (string)($data['checkout_request_id'] ?? ''),
+        'message' => $result['success']
             ? 'Payment request sent to Lipana.'
-            : ($providerMessage !== '' ? 'Lipana: ' . $providerMessage : 'Lipana payment request failed.'),
+            : ($result['message'] !== '' ? $result['message'] : 'Lipana payment request failed.'),
     ];
+}
+
+function lipana_extract_webhook_signature(): string
+{
+    $headers = [];
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+    }
+
+    foreach ($headers as $name => $value) {
+        $name = strtolower((string)$name);
+        if (in_array($name, ['x-lipana-signature', 'x-signature', 'signature'], true)) {
+            return trim((string)$value);
+        }
+    }
+
+    foreach ($_SERVER as $name => $value) {
+        $name = strtolower($name);
+        if (in_array($name, ['http_x_lipana_signature', 'http_x_signature', 'http_signature'], true)) {
+            return trim((string)$value);
+        }
+    }
+
+    return '';
+}
+
+function lipana_verify_webhook_signature(string $payload, string $signature): bool
+{
+    $secret = get_lipana_config()['webhook_secret'];
+    if ($secret === '' || $signature === '') {
+        return false;
+    }
+    $expectedSignature = hash_hmac('sha256', $payload, $secret);
+    return hash_equals($expectedSignature, $signature);
+}
+
+function lipana_verify_webhook_request(): bool
+{
+    $body = file_get_contents('php://input');
+    $signature = lipana_extract_webhook_signature();
+    return lipana_verify_webhook_signature($body, $signature);
+}
+
+function lipana_fetch_transaction_by_id(string $transactionId): array
+{
+    $transactionId = trim($transactionId);
+    if ($transactionId === '') {
+        return ['success' => false, 'message' => 'Missing Lipana transaction ID.'];
+    }
+
+    return lipana_api_request('GET', '/transactions/' . rawurlencode($transactionId));
+}
+
+function lipana_find_transaction_for_request(array $request): array
+{
+    if (!empty($request['transaction_id'])) {
+        $result = lipana_fetch_transaction_by_id((string)$request['transaction_id']);
+        if ($result['success'] && is_array($result['response']['data'] ?? null)) {
+            return $result['response']['data'];
+        }
+    }
+
+    if (!empty($request['checkout_request_id'])) {
+        $result = lipana_fetch_transaction_by_id((string)$request['checkout_request_id']);
+        if ($result['success'] && is_array($result['response']['data'] ?? null)) {
+            return $result['response']['data'];
+        }
+    }
+
+    return [];
+}
+
+function lipana_transaction_is_successful(array $transaction, float $expectedAmount): bool
+{
+    if (empty($transaction['status'])) {
+        return false;
+    }
+
+    if (strtolower((string)$transaction['status']) !== 'success') {
+        return false;
+    }
+
+    if (isset($transaction['amount']) && abs((float)$transaction['amount'] - $expectedAmount) > 0.01) {
+        return false;
+    }
+
+    return true;
+}
+
+function lipana_transaction_reference_code(array $transaction): ?string
+{
+    if (!empty($transaction['checkoutRequestID'])) {
+        return (string)$transaction['checkoutRequestID'];
+    }
+    if (!empty($transaction['checkout_request_id'])) {
+        return (string)$transaction['checkout_request_id'];
+    }
+    if (!empty($transaction['transactionId'])) {
+        return (string)$transaction['transactionId'];
+    }
+    if (!empty($transaction['transaction_id'])) {
+        return (string)$transaction['transaction_id'];
+    }
+    return null;
+}
+
+/**
+ * Return the M-Pesa receipt number from the successful transaction, not the
+ * Lipana checkout/request identifier used while the STK prompt is pending.
+ */
+function lipana_transaction_mpesa_code(array $transaction): ?string
+{
+    foreach (['mpesaReceiptNumber', 'mpesa_receipt_number', 'mpesaCode', 'mpesa_code', 'receiptNumber', 'receipt_number', 'transactionCode', 'transaction_code'] as $key) {
+        if (isset($transaction[$key]) && is_scalar($transaction[$key]) && trim((string)$transaction[$key]) !== '') {
+            return trim((string)$transaction[$key]);
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Lipana response keys differ slightly across M-Pesa products. Keep the
+ * extraction in one place so the POS displays provider-verified payer data.
+ */
+function lipana_transaction_customer(array $transaction): array
+{
+    $name = null;
+    foreach (['customerName', 'customer_name', 'payerName', 'payer_name', 'senderName', 'sender_name', 'name'] as $key) {
+        if (isset($transaction[$key]) && is_scalar($transaction[$key]) && trim((string)$transaction[$key]) !== '') {
+            $name = trim((string)$transaction[$key]);
+            break;
+        }
+    }
+
+    $phone = null;
+    foreach (['customerPhone', 'customer_phone', 'payerPhone', 'payer_phone', 'phoneNumber', 'phone_number', 'phone'] as $key) {
+        if (isset($transaction[$key]) && is_scalar($transaction[$key]) && trim((string)$transaction[$key]) !== '') {
+            $phone = normalize_lipana_phone((string)$transaction[$key]);
+            break;
+        }
+    }
+
+    return ['name' => $name, 'phone' => $phone ?: null];
 }

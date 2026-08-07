@@ -7,6 +7,7 @@ if (!verify_csrf_request()) { http_response_code(403); exit; }
 
 require_once '../config/db.php';
 require_once '../includes/functions.php';
+require_once '../includes/lipana.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 app_log('Sale complete request: invoice=' . ($data['invoice_no'] ?? 'none') . ' user=' . $_SESSION['user_id'] . ' items=' . (is_array($data['items'] ?? null) ? count($data['items']) : 0));
@@ -106,9 +107,40 @@ try {
 
     // Lipana sales must be backed by a server-side payment request with a
     // matching payload token. The client cannot self-verify.
+    $mpesa_code = null;
     if ($payment_method === 'Lipana') {
         if ($payload_token === null || !is_lipana_payment_verified($pdo, $invoice_no, $grand_total, $payload_token)) {
             throw new RuntimeException('This Lipana payment has not been verified. Send the payment prompt for this exact sale before completing it.');
+        }
+
+        $paymentRequest = get_lipana_payment_request($pdo, $invoice_no, $payload_token);
+        if (!$paymentRequest) {
+            throw new RuntimeException('Unable to locate the Lipana payment request for this sale.');
+        }
+
+        $mpesa_code = trim((string)($paymentRequest['mpesa_code'] ?? '')) ?: null;
+        if ($paymentRequest['status'] === 'initiated') {
+            $transactionId = trim((string)($paymentRequest['transaction_id'] ?? ''));
+            if ($transactionId === '') {
+                throw new RuntimeException('Cannot verify Lipana payment because the transaction reference is missing.');
+            }
+
+            $verification = lipana_fetch_transaction_by_id($transactionId);
+            if (!$verification['success'] || !is_array($verification['response']['data'] ?? null)) {
+                throw new RuntimeException('Unable to confirm Lipana payment. Please try again later.');
+            }
+
+            $transaction = $verification['response']['data'];
+            if (!lipana_transaction_is_successful($transaction, $grand_total)) {
+                throw new RuntimeException('The Lipana payment is not completed or does not match the sale amount.');
+            }
+
+            if (!update_lipana_payment_request_verification($pdo, $invoice_no, $payload_token, $transaction)) {
+                throw new RuntimeException('Lipana payment verification succeeded, but the system could not mark the request as completed.');
+            }
+
+            $mpesa_code = lipana_transaction_mpesa_code($transaction) ?: $mpesa_code;
+            $paymentRequest = get_lipana_payment_request($pdo, $invoice_no, $payload_token) ?: $paymentRequest;
         }
     }
 
@@ -161,7 +193,9 @@ try {
             'user_id' => $user_id,
             'customer_id' => $customer_id,
             'payment_method' => $payment_method,
-            'mpesa_code' => isset($data['mpesa_code']) ? trim((string)$data['mpesa_code']) : null,
+            'mpesa_code' => $mpesa_code,
+            'mpesa_customer_name' => $paymentRequest['customer_name'] ?? null,
+            'mpesa_customer_phone' => $paymentRequest['customer_phone'] ?? null,
             'items' => array_map(function($it){
                 return [
                     'name' => $it['product_name'],
@@ -184,7 +218,7 @@ try {
     }
 
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'invoice_no' => $invoice_no, 'sale_id' => (int)$sale_id, 'receipt_id' => isset($receipt_id) ? $receipt_id : null]);
+    echo json_encode(['success' => true, 'invoice_no' => $invoice_no, 'sale_id' => (int)$sale_id, 'receipt_id' => isset($receipt_id) ? $receipt_id : null, 'mpesa_code' => $mpesa_code, 'mpesa_customer_name' => $paymentRequest['customer_name'] ?? null, 'mpesa_customer_phone' => $paymentRequest['customer_phone'] ?? null]);
     exit;
 } catch (Throwable $e) {
     app_log('ERROR: Sale completion failed: ' . $e->getMessage());

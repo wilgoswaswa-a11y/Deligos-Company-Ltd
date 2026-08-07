@@ -105,20 +105,37 @@ function max_discount_percent(): float
  */
 function is_lipana_payment_verified(PDO $pdo, string $invoice_no, float $amount, ?string $payload_token = null): bool
 {
-    $stmt = $pdo->prepare(
-        "SELECT status, amount FROM lipana_payment_requests
-         WHERE invoice_no = ? AND (? IS NULL OR payload_token = ?)
-         LIMIT 1"
-    );
-    $stmt->execute([$invoice_no, $payload_token, $payload_token]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
+    $request = get_lipana_payment_request($pdo, $invoice_no, $payload_token);
+    if (!$request) {
         return false;
     }
-    if (!in_array($row['status'], ['initiated', 'completed'], true)) {
+    if (abs((float)$request['amount'] - $amount) > 0.01) {
         return false;
     }
-    return abs((float)$row['amount'] - $amount) < 0.01;
+
+    if (in_array($request['status'], ['completed'], true)) {
+        return true;
+    }
+
+    if ($request['status'] !== 'initiated') {
+        return false;
+    }
+
+    if (!function_exists('lipana_find_transaction_for_request')) {
+        return false;
+    }
+
+    $transaction = lipana_find_transaction_for_request($request);
+    if (empty($transaction)) {
+        return false;
+    }
+
+    if (!lipana_transaction_is_successful($transaction, $amount)) {
+        return false;
+    }
+
+    update_lipana_payment_request_verification($pdo, $invoice_no, $payload_token, $transaction);
+    return true;
 }
 
 /**
@@ -132,19 +149,90 @@ function is_lipana_payment_verified(PDO $pdo, string $invoice_no, float $amount,
  * @param float $amount
  * @return string|false Payload token, or false on failure.
  */
-function record_lipana_payment_request(PDO $pdo, int $user_id, string $invoice_no, string $phone_number, float $amount)
+function record_lipana_payment_request(PDO $pdo, int $user_id, string $invoice_no, string $phone_number, float $amount, ?string $transaction_id = null, ?string $checkout_request_id = null)
 {
     try {
         $pdo->prepare("DELETE FROM lipana_payment_requests WHERE invoice_no = ?")->execute([$invoice_no]);
         $token = bin2hex(random_bytes(24));
         $stmt = $pdo->prepare(
-            "INSERT INTO lipana_payment_requests (user_id, invoice_no, phone_number, amount, status, payload_token)
-             VALUES (?, ?, ?, ?, 'initiated', ?)"
+            "INSERT INTO lipana_payment_requests (user_id, invoice_no, phone_number, amount, status, payload_token, transaction_id, checkout_request_id)
+             VALUES (?, ?, ?, ?, 'initiated', ?, ?, ?)"
         );
-        $stmt->execute([$user_id, $invoice_no, $phone_number, $amount, $token]);
+        $stmt->execute([$user_id, $invoice_no, $phone_number, $amount, $token, $transaction_id, $checkout_request_id]);
         return $token;
     } catch (Throwable $e) {
         app_log('record_lipana_payment_request failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function get_lipana_payment_request(PDO $pdo, string $invoice_no, ?string $payload_token = null): ?array
+{
+    $stmt = $pdo->prepare(
+        "SELECT * FROM lipana_payment_requests
+         WHERE invoice_no = ? AND (? IS NULL OR payload_token = ?)
+         LIMIT 1"
+    );
+    $stmt->execute([$invoice_no, $payload_token, $payload_token]);
+    $request = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $request ?: null;
+}
+
+function get_lipana_payment_request_by_identifiers(PDO $pdo, ?string $transaction_id = null, ?string $checkout_request_id = null): ?array
+{
+    if (empty($transaction_id) && empty($checkout_request_id)) {
+        return null;
+    }
+
+    $query = "SELECT * FROM lipana_payment_requests WHERE ";
+    $params = [];
+    $clauses = [];
+
+    if (!empty($transaction_id)) {
+        $clauses[] = 'transaction_id = ?';
+        $params[] = $transaction_id;
+    }
+    if (!empty($checkout_request_id)) {
+        $clauses[] = 'checkout_request_id = ?';
+        $params[] = $checkout_request_id;
+    }
+
+    $query .= implode(' OR ', $clauses) . ' LIMIT 1';
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $request = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $request ?: null;
+}
+
+function update_lipana_payment_request_identifiers(PDO $pdo, string $invoice_no, string $payload_token, ?string $transaction_id = null, ?string $checkout_request_id = null): bool
+{
+    try {
+        $fields = [];
+        $params = [];
+
+        if (!empty($transaction_id)) {
+            $fields[] = 'transaction_id = ?';
+            $params[] = $transaction_id;
+        }
+        if (!empty($checkout_request_id)) {
+            $fields[] = 'checkout_request_id = ?';
+            $params[] = $checkout_request_id;
+        }
+
+        if (empty($fields)) {
+            return false;
+        }
+
+        $params[] = $invoice_no;
+        $params[] = $payload_token;
+
+        $stmt = $pdo->prepare(
+            "UPDATE lipana_payment_requests SET " . implode(', ', $fields) . ", updated_at = NOW() WHERE invoice_no = ? AND payload_token = ? LIMIT 1"
+        );
+        $stmt->execute($params);
+        return $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        app_log('update_lipana_payment_request_identifiers failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -161,7 +249,7 @@ function confirm_lipana_payment(PDO $pdo, string $invoice_no, string $payload_to
 {
     try {
         $stmt = $pdo->prepare(
-            "UPDATE lipana_payment_requests SET status = 'completed', completed_at = NOW()
+            "UPDATE lipana_payment_requests SET status = 'completed', completed_at = NOW(), updated_at = NOW()
              WHERE invoice_no = ? AND payload_token = ? AND status IN ('initiated', 'completed')"
         );
         $stmt->execute([$invoice_no, $payload_token]);
@@ -172,13 +260,45 @@ function confirm_lipana_payment(PDO $pdo, string $invoice_no, string $payload_to
     }
 }
 
+/** Persist the provider-confirmed payer and M-Pesa receipt details. */
+function update_lipana_payment_request_verification(PDO $pdo, string $invoice_no, string $payload_token, array $transaction): bool
+{
+    try {
+        $customer = lipana_transaction_customer($transaction);
+        $stmt = $pdo->prepare(
+            "UPDATE lipana_payment_requests
+             SET status = 'completed', completed_at = NOW(),
+                 transaction_id = COALESCE(NULLIF(?, ''), transaction_id),
+                 checkout_request_id = COALESCE(NULLIF(?, ''), checkout_request_id),
+                 mpesa_code = COALESCE(NULLIF(?, ''), mpesa_code),
+                 customer_name = COALESCE(NULLIF(?, ''), customer_name),
+                 customer_phone = COALESCE(NULLIF(?, ''), customer_phone),
+                 updated_at = NOW()
+             WHERE invoice_no = ? AND payload_token = ? AND status IN ('initiated', 'completed')"
+        );
+        $stmt->execute([
+            trim((string)($transaction['transactionId'] ?? $transaction['transaction_id'] ?? '')),
+            trim((string)($transaction['checkoutRequestID'] ?? $transaction['checkout_request_id'] ?? '')),
+            lipana_transaction_mpesa_code($transaction) ?? '',
+            $customer['name'] ?? '',
+            $customer['phone'] ?? '',
+            $invoice_no,
+            $payload_token,
+        ]);
+        return $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        app_log('update_lipana_payment_request_verification failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
 /**
  * Mark a Lipana payment request as failed so it cannot be used to complete a sale.
  */
 function fail_lipana_payment(PDO $pdo, string $invoice_no): void
 {
     try {
-        $pdo->prepare("UPDATE lipana_payment_requests SET status = 'failed' WHERE invoice_no = ? AND status = 'initiated'")
+        $pdo->prepare("UPDATE lipana_payment_requests SET status = 'failed', updated_at = NOW() WHERE invoice_no = ? AND status = 'initiated'")
             ->execute([$invoice_no]);
     } catch (Throwable $e) {
         app_log('fail_lipana_payment failed: ' . $e->getMessage());

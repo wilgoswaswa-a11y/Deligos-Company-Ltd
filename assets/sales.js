@@ -97,14 +97,9 @@
             cashier: $('#receiptCashier').text().trim(),
             discount: discount,
             total: total,
-            mpesa_code: $('#lipanaCode').val().trim() || null,
-            items: cart.map(function (item) {
-                return {
-                    name: item.name,
-                    qty: item.qty,
-                    total: item.price * item.qty
-                };
-            })
+            mpesa_code: lipanaRequest?.mpesa_code || null,
+            mpesa_customer_name: lipanaRequest?.customer_name || null,
+            mpesa_customer_phone: lipanaRequest?.customer_phone || null,
         };
     }
 
@@ -442,6 +437,9 @@
         const grand = parseFloat($('#grandTotal').text()) || 0;
         $('#lipanaAmount').val(fmt(grand));
         $('#lipanaInvoiceDisplay').text(invoiceNo);
+        $('#lipanaVerification').addClass('d-none');
+        $('#lipanaVerifiedDetails').addClass('d-none');
+        $('#verifyLipanaBtn').toggleClass('d-none', !lipanaRequest).prop('disabled', false);
 
         if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             const lipanaModalEl = document.getElementById('lipanaModal');
@@ -457,7 +455,9 @@
         $('#initiateLipanaBtn').toggle(isLipana);
         if (!isLipana) {
             $('#lipanaPhone').val('');
-            $('#lipanaCode').val('');
+            $('#lipanaReference').val('');
+            $('#lipanaVerification').addClass('d-none');
+            $('#verifyLipanaBtn').addClass('d-none');
             lipanaRequest = null;
         }
     }
@@ -494,8 +494,52 @@
         lipanaRequest = {
             invoiceNo: invoiceNo,
             amount: amount,
-            payload_token: data.payload_token || null
+            payload_token: data.payload_token || null,
+            transaction_id: data.transaction_id || null,
+            checkout_request_id: data.checkout_request_id || null,
+            verified: false,
+            mpesa_code: null,
+            customer_name: null,
+            customer_phone: null
         };
+        $('#lipanaReference').val(data.checkout_request_id || data.transaction_id || '');
+        $('#lipanaVerification').removeClass('d-none alert-success').addClass('alert-info');
+        $('#lipanaVerificationMessage').text('STK prompt sent. Ask the customer to approve it, then click Verify Payment.');
+        $('#lipanaVerifiedDetails').addClass('d-none');
+        $('#verifyLipanaBtn').removeClass('d-none');
+        return data;
+    }
+
+    async function verifyLipanaPayment() {
+        if (!lipanaRequest || !lipanaRequest.payload_token) {
+            throw new Error('Send the Lipana payment request first.');
+        }
+
+        const response = await fetch('ajax/lipana.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+            body: JSON.stringify({ action: 'verify_payment', invoice_no: invoiceNo, payload_token: lipanaRequest.payload_token })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Unable to verify the Lipana payment.');
+        }
+
+        lipanaRequest.verified = Boolean(data.verified);
+        lipanaRequest.mpesa_code = data.mpesa_code || null;
+        lipanaRequest.customer_name = data.customer_name || null;
+        lipanaRequest.customer_phone = data.customer_phone || null;
+        $('#lipanaVerification').removeClass('d-none alert-info alert-success').addClass(data.verified ? 'alert-success' : 'alert-info');
+        $('#lipanaVerificationMessage').text(data.message || (data.verified ? 'Payment verified successfully.' : 'Payment is still awaiting confirmation.'));
+
+        if (data.verified) {
+            $('#lipanaMpesaCode').text(data.mpesa_code || 'Not supplied by Lipana');
+            $('#lipanaCustomerName').text(data.customer_name || 'Not supplied by Lipana');
+            $('#lipanaCustomerPhone').text(data.customer_phone || 'Not supplied by Lipana');
+            $('#lipanaVerifiedDetails').removeClass('d-none');
+        } else {
+            $('#lipanaVerifiedDetails').addClass('d-none');
+        }
         return data;
     }
 
@@ -605,15 +649,20 @@
             try {
                 const data = await initiateLipanaPayment();
                 notify(data.message || 'Payment request sent.', 'success');
-                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                    const lipanaModalEl = document.getElementById('lipanaModal');
-                    const lipanaModal = bootstrap.Modal.getOrCreateInstance(lipanaModalEl);
-                    lipanaModal.hide();
-                } else {
-                    $('#lipanaModal').hide();
-                }
             } catch (error) {
                 notify(error.message, 'danger');
+            }
+        });
+
+        $('#verifyLipanaBtn').on('click', async function () {
+            const verifyButton = $(this).prop('disabled', true);
+            try {
+                const data = await verifyLipanaPayment();
+                notify(data.message, data.verified ? 'success' : 'info');
+            } catch (error) {
+                notify(error.message, 'danger');
+            } finally {
+                verifyButton.prop('disabled', false);
             }
         });
 
@@ -644,8 +693,8 @@
             const payment_method = $('#paymentMethodSelect').val() || 'Cash';
 
             if (payment_method === 'Lipana') {
-                if (!lipanaRequest || lipanaRequest.invoiceNo !== invoiceNo || lipanaRequest.amount !== grand_total) {
-                    notify('Send the Lipana payment prompt for this exact sale before completing it.', 'warning');
+                if (!lipanaRequest || lipanaRequest.invoiceNo !== invoiceNo || lipanaRequest.amount !== grand_total || !lipanaRequest.verified) {
+                    notify('Verify the successful Lipana payment and confirm its M-Pesa code before completing this sale.', 'warning');
                     return;
                 }
             }
@@ -656,7 +705,7 @@
                 discount: discount,
                 grand_total: grand_total,
                 payment_method: payment_method,
-                mpesa_code: $('#lipanaCode').val().trim() || null,
+                payment_reference: lipanaRequest?.checkout_request_id || lipanaRequest?.transaction_id || null,
                 items: cart.map(function (item) {
                     return { product_id: item.id, qty: item.qty, unit_price: item.price };
                 })
@@ -695,7 +744,7 @@
                         $('#receiptInvoice').text(invoiceNo);
                         renderCart();
                         $('#discountInput').val(0);
-                        $('#lipanaCode').val('');
+                        $('#lipanaReference').val('');
                         $('#customerSelect').val('');
                         updateTotals();
                         renderReceiptData(lastReceiptData);

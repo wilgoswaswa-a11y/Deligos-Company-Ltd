@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `lipana_payment_requests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `invoice_no` varchar(20) NOT NULL,
+  `phone_number` varchar(20) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `status` enum('initiated','completed','failed') NOT NULL DEFAULT 'initiated',
+  `payload_token` varchar(64) NOT NULL,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `checkout_request_id` varchar(100) DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `invoice_no` (`invoice_no`),
+  UNIQUE KEY `payload_token` (`payload_token`),
+  KEY `user_id` (`user_id`),
+  KEY `transaction_id` (`transaction_id`),
+  KEY `checkout_request_id` (`checkout_request_id`),
+  CONSTRAINT `lipana_payment_requests_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
