@@ -1,14 +1,16 @@
 <?php
+require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/env.php';
 
 function get_lipana_config(): array
 {
-    $environment = strtolower((string)(getenv('LIPANA_ENVIRONMENT') ?: 'sandbox'));
+    $environment = strtolower((string)(env('LIPANA_ENVIRONMENT') ?: 'sandbox'));
     if (!in_array($environment, ['sandbox', 'production'], true)) {
         $environment = 'sandbox';
     }
 
-    $baseUrl = rtrim((string)(getenv('LIPANA_BASE_URL') ?: ''), '/');
+    $baseUrl = rtrim((string)(env('LIPANA_BASE_URL') ?: ''), '/');
     if ($baseUrl === '') {
         $baseUrl = $environment === 'production'
             ? 'https://api.lipana.dev/v1'
@@ -22,7 +24,7 @@ function get_lipana_config(): array
         $baseUrl .= '/v1';
     }
 
-    $endpoint = (string)(getenv('LIPANA_PAYMENT_ENDPOINT') ?: '/transactions/push-stk');
+    $endpoint = (string)(env('LIPANA_PAYMENT_ENDPOINT') ?: '/transactions/push-stk');
     if ($endpoint === '/v1/stkpush' || $endpoint === '/stk-push') {
         $endpoint = '/transactions/push-stk';
     }
@@ -31,10 +33,10 @@ function get_lipana_config(): array
         // Lipana manages the underlying M-Pesa connection; this app only needs
         // a server-side Lipana secret key.
         'base_url' => $baseUrl,
-        'api_key' => getenv('LIPANA_SECRET_KEY') ?: getenv('LIPANA_API_KEY') ?: '',
+        'api_key' => (string)(env('LIPANA_SECRET_KEY') ?: env('LIPANA_API_KEY') ?: ''),
         'endpoint' => $endpoint,
         'environment' => $environment,
-        'timeout' => (int)(getenv('LIPANA_TIMEOUT') ?: 60),
+        'timeout' => (int)(env('LIPANA_TIMEOUT') ?: 60),
     ];
 }
 
@@ -118,7 +120,7 @@ function lipana_stk_push(array $payload): array
     curl_close($ch);
 
     if ($response === false) {
-        error_log('Lipana STK request failed: ' . $curlError);
+        app_log('Lipana STK request failed: ' . $curlError);
         return ['success' => false, 'message' => 'Unable to reach the Lipana API. Please try again.'];
     }
 
@@ -136,7 +138,7 @@ function lipana_stk_push(array $payload): array
     }
 
     if (!$success) {
-        error_log('Lipana STK response: HTTP ' . $httpCode . ' ' . substr($response, 0, 2000));
+        app_log('Lipana STK response: HTTP ' . $httpCode . ' ' . substr($response, 0, 2000));
     }
 
     return [

@@ -8,17 +8,6 @@ if (isset($_SESSION['user_id'])) {
 }
 require_once 'config/db.php';
 
-if ($pdo) {
-    try {
-        $columnCheck = $pdo->query("SHOW COLUMNS FROM users LIKE 'last_login'")->fetch();
-        if (!$columnCheck) {
-            $pdo->exec("ALTER TABLE users ADD COLUMN last_login DATETIME NULL AFTER email");
-        }
-    } catch (Throwable $e) {
-        // If schema migration fails, continue without blocking login.
-    }
-}
-
 $error = '';
 $login = '';
 $login_type = 'username';
@@ -29,10 +18,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
     $login = trim($_POST['username'] ?? '');
     $login_type = in_array($_POST['login_type'] ?? 'username', ['username', 'email'], true) ? $_POST['login_type'] : 'username';
     $password = $_POST['password'] ?? '';
-    $attemptKey = 'login_attempts_' . sha1(strtolower($login) . '|' . ($_SERVER['REMOTE_ADDR'] ?? 'local'));
-    $attempt = $_SESSION[$attemptKey] ?? ['count' => 0, 'until' => 0];
+    require_once 'includes/functions.php';
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '';
+    $attemptKey = sha1(strtolower($login) . '|' . $ipAddress);
 
-    if (($attempt['until'] ?? 0) > time()) {
+    // Database-backed rate limiting: survives cookie clearing and works
+    // across multiple browser profiles/terminals behind the same IP.
+    try {
+        $upsert = $pdo->prepare(
+            "INSERT INTO login_attempts (attempt_key, ip_address, attempt_count, locked_until)
+             VALUES (?, ?, 1, NULL)
+             ON DUPLICATE KEY UPDATE
+               attempt_count = IF(locked_until IS NULL OR locked_until < NOW(), 1, attempt_count + 1),
+               last_attempt_at = NOW()"
+        );
+        $upsert->execute([$attemptKey, $ipAddress]);
+        $attemptRow = $pdo->prepare("SELECT attempt_count, locked_until FROM login_attempts WHERE attempt_key = ?");
+        $attemptRow->execute([$attemptKey]);
+        $attempt = $attemptRow->fetch(PDO::FETCH_ASSOC) ?: ['attempt_count' => 0, 'locked_until' => null];
+    } catch (Throwable $e) {
+        // Fall back to session tracking if the rate-limit table is unavailable.
+        $attempt = ['attempt_count' => 0, 'locked_until' => null];
+    }
+
+    if ($attempt['locked_until'] !== null && strtotime($attempt['locked_until']) > time()) {
         $error = 'Too many login attempts. Please try again in a few minutes.';
     } else {
         if ($login_type === 'email' && $login !== '' && !filter_var($login, FILTER_VALIDATE_EMAIL)) {
@@ -61,7 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                     }
 
                     session_regenerate_id(true);
-                    unset($_SESSION[$attemptKey]);
+                    try {
+                        $pdo->prepare("DELETE FROM login_attempts WHERE attempt_key = ?")->execute([$attemptKey]);
+                    } catch (Throwable $e) {
+                        // Rate-limit cleanup is best-effort.
+                    }
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['full_name'] = $user['full_name'];
@@ -73,9 +86,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                     exit;
                 }
             } else {
-                $attempt['count'] = (int)($attempt['count'] ?? 0) + 1;
-                $attempt['until'] = $attempt['count'] >= 5 ? time() + 300 : 0;
-                $_SESSION[$attemptKey] = $attempt;
+                // The upsert above already incremented the counter for this
+                // attempt. Lock the key once the threshold is reached.
+                $attemptCount = (int)($attempt['attempt_count'] ?? 0);
+                if ($attemptCount >= 5) {
+                    try {
+                        $pdo->prepare("UPDATE login_attempts SET locked_until = DATE_ADD(NOW(), INTERVAL 5 MINUTE) WHERE attempt_key = ?")->execute([$attemptKey]);
+                    } catch (Throwable $e) {
+                        // Best-effort lock.
+                    }
+                }
                 $error = 'Invalid username or password.';
             }
         }
@@ -90,8 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
     <title>POS Login</title>
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="assets/favicon.ico">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/vendor/bootstrap-icons/font/bootstrap-icons.css">
     <style>
         .login-logo {
             width: 96px;
@@ -170,42 +190,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         </div>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/app.js"></script>
 <script>
-window.showToast = function(message, type = 'info') {
-    const container = document.getElementById('appToastContainer');
-    if (!container || !message) {
-        return;
-    }
-
-    const styles = {
-        success: { className: 'text-bg-success', icon: 'bi-check-circle-fill' },
-        error: { className: 'text-bg-danger', icon: 'bi-exclamation-triangle-fill' },
-        danger: { className: 'text-bg-danger', icon: 'bi-exclamation-triangle-fill' },
-        warning: { className: 'text-bg-warning', icon: 'bi-exclamation-circle-fill' },
-        info: { className: 'text-bg-primary', icon: 'bi-info-circle-fill' }
-    };
-    const style = styles[type] || styles.info;
-    const toast = document.createElement('div');
-    toast.className = `toast app-toast align-items-center border-0 ${style.className}`;
-    toast.role = 'alert';
-    toast.ariaLive = 'assertive';
-    toast.ariaAtomic = 'true';
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="bi ${style.icon} me-2"></i>${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    `;
-    container.appendChild(toast);
-
-    const instance = new bootstrap.Toast(toast, { delay: 3500 });
-    toast.addEventListener('hidden.bs.toast', () => toast.remove());
-    instance.show();
-};
-
 const loginTypeRadios = document.querySelectorAll('input[name="login_type"]');
 const loginField = document.getElementById('loginField');
 const loginFieldLabel = document.getElementById('loginFieldLabel');
@@ -236,51 +223,6 @@ function updateLoginFieldMode() {
 
 loginTypeRadios.forEach(radio => radio.addEventListener('change', updateLoginFieldMode));
 updateLoginFieldMode();
-
-document.querySelectorAll('input[type="email"]').forEach(input => {
-    const validateEmailInput = () => {
-        const value = input.value.trim();
-        if (!value) {
-            input.setCustomValidity('');
-            return;
-        }
-        input.setCustomValidity(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : 'Please enter a valid email address.');
-    };
-
-    input.addEventListener('input', validateEmailInput);
-    input.addEventListener('blur', validateEmailInput);
-    input.addEventListener('change', validateEmailInput);
-    validateEmailInput();
-});
-
-document.querySelectorAll('.password-input').forEach(input => {
-    const hint = document.getElementById(input.dataset.hintId);
-    if (!hint) {
-        return;
-    }
-
-    const showHint = () => {
-        hint.style.display = 'block';
-    };
-    const hideHint = () => {
-        hint.style.display = 'none';
-    };
-
-    input.addEventListener('focus', showHint);
-    input.addEventListener('click', showHint);
-    input.addEventListener('blur', hideHint);
-});
-
-document.querySelectorAll('.toggle-password').forEach(button => {
-    button.addEventListener('click', () => {
-        const input = document.getElementById(button.dataset.target);
-        const icon = button.querySelector('i');
-        const show = input.type === 'password';
-        input.type = show ? 'text' : 'password';
-        icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
-        button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    });
-});
 </script>
 </body>
 </html>

@@ -11,6 +11,7 @@ CREATE TABLE `users` (
   `phone` varchar(30) DEFAULT NULL,
   `id_number` varchar(50) DEFAULT NULL,
   `email` varchar(100) DEFAULT NULL,
+  `last_login` datetime DEFAULT NULL,
   `role` enum('admin','cashier') NOT NULL DEFAULT 'cashier',
   `email_verified` tinyint(1) NOT NULL DEFAULT 0,
   `email_verification_code` varchar(6) DEFAULT NULL,

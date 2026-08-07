@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
 
@@ -86,8 +87,8 @@ try {
             ];
         }, $items)
     ]);
-} catch (Exception $e) {
+} catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    app_log('get_sale failed: ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => app_exception_message($e, 'We could not load the sale right now. Please try again.')]);
 }
-

@@ -1,15 +1,8 @@
 <?php
+$required_role = 'admin';
 require_once 'includes/auth.php';
 require_once 'config/db.php';
 require_once 'includes/functions.php';
-
-// Require admin role
-if (($_SESSION['role'] ?? '') !== 'admin') {
-    http_response_code(403);
-    $_SESSION['error'] = 'You do not have permission to access the admin panel.';
-    header('Location: dashboard.php');
-    exit;
-}
 
 $pageTitle = 'Admin Dashboard';
 

@@ -1,23 +1,11 @@
 <?php
 require_once __DIR__ . '/../includes/security.php';
+require_once __DIR__ . '/../includes/env.php';
 
-$envFile = __DIR__ . '/../.env';
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '' || $line[0] === '#') continue;
-        if (strpos($line, '=') === false) continue;
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value, " \t\n\r\0\x0B\"'");
-        putenv("$name=$value");
-        $_ENV[$name] = $value;
-    }
-}
+load_env();
 
 // Railway / Render / generic production environment support
-$databaseUrl = getenv('DATABASE_URL') ?: getenv('MYSQL_URL') ?: getenv('RAILWAY_DATABASE_URL') ?: getenv('RENDER_DATABASE_URL');
+$databaseUrl = env('DATABASE_URL') ?: env('MYSQL_URL') ?: env('RAILWAY_DATABASE_URL') ?: env('RENDER_DATABASE_URL');
 if ($databaseUrl) {
     $dbopts = parse_url($databaseUrl);
     $host     = $dbopts['host'] ?? 'localhost';
@@ -33,11 +21,11 @@ if ($databaseUrl) {
     }
 } else {
     // Local XAMPP / manual environment variable fallbacks
-    $host     = getenv('DB_HOST') ?: getenv('MYSQL_HOST') ?: getenv('MYSQLHOST') ?: 'localhost';
-    $dbname   = getenv('DB_NAME') ?: getenv('DB_DATABASE') ?: getenv('MYSQL_DATABASE') ?: getenv('MYSQLDATABASE') ?: 'pos_system';
-    $username = getenv('DB_USER') ?: getenv('DB_USERNAME') ?: getenv('MYSQL_USER') ?: getenv('MYSQLUSER') ?: 'root';
-    $password = getenv('DB_PASS') ?: getenv('DB_PASSWORD') ?: getenv('MYSQL_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: '';
-    $port     = getenv('DB_PORT') ?: getenv('MYSQL_PORT') ?: getenv('MYSQLPORT') ?: 3306;
+    $host     = env('DB_HOST') ?: env('MYSQL_HOST') ?: env('MYSQLHOST') ?: 'localhost';
+    $dbname   = env('DB_NAME') ?: env('DB_DATABASE') ?: env('MYSQL_DATABASE') ?: env('MYSQLDATABASE') ?: 'pos_system';
+    $username = env('DB_USER') ?: env('DB_USERNAME') ?: env('MYSQL_USER') ?: env('MYSQLUSER') ?: 'root';
+    $password = env('DB_PASS') ?: env('DB_PASSWORD') ?: env('MYSQL_PASSWORD') ?: env('MYSQLPASSWORD') ?: '';
+    $port     = env('DB_PORT') ?: env('MYSQL_PORT') ?: env('MYSQLPORT') ?: 3306;
 }
 
 try {
@@ -46,7 +34,18 @@ try {
         PDO::ATTR_TIMEOUT => 5,
     ]);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
+} catch (PDOException $e) {
     app_log('Database connection failed: ' . $e->getMessage());
     $pdo = null;
+
+    // Render a friendly maintenance page instead of white-screening on
+    // every page that touches the database.
+    if (PHP_SAPI !== 'cli') {
+        http_response_code(503);
+        if (!headers_sent()) {
+            header('Retry-After: 120');
+        }
+        include __DIR__ . '/../maintenance.php';
+        exit;
+    }
 }

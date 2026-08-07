@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/mail.php';
 
 require_permission('receipts.reprint', '/admin/index.php');
 
@@ -30,10 +31,31 @@ try {
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_post_csrf();
+    $email = normalize_email($_POST['email'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $_SESSION['error'] = 'Enter a valid customer email address.';
+    } else {
+        $data = json_decode($rec['snapshot'] ?? '', true) ?: [];
+        $invoice = $data['invoice_no'] ?? $rec['invoice_no'] ?? ('Receipt #' . $id);
+        $total = number_format((float)($data['grand_total'] ?? 0), 2);
+        $html = '<h2>Receipt ' . htmlspecialchars($invoice, ENT_QUOTES, 'UTF-8') . '</h2><p>Thank you for your purchase.</p><p>Total: <strong>KSh ' . $total . '</strong></p>';
+        $ok = send_email_message($email, '', 'Your receipt ' . $invoice, $html, 'Receipt ' . $invoice . ' - Total: KSh ' . $total);
+        $stmt = $pdo->prepare("INSERT INTO receipt_deliveries (receipt_id, delivery_type, recipient_email, status, delivered_by) VALUES (?, 'email', ?, ?, ?)");
+        $stmt->execute([$id, $email, $ok ? 'sent' : 'failed', $_SESSION['user_id'] ?? null]);
+        audit_log('email', 'receipts', $id, null, ['recipient' => $email, 'status' => $ok ? 'sent' : 'failed'], 'Receipt email');
+        $_SESSION[$ok ? 'message' : 'error'] = $ok ? 'Receipt emailed to the customer.' : 'Email could not be sent. Check mail configuration.';
+    }
+    header('Location: receipt_view.php?id=' . $id); exit;
+}
+
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <h2>Receipt #<?= $rec['id'] ?> (Sale: <?= htmlspecialchars($rec['invoice_no'] ?? $rec['sale_id']) ?>)</h2>
+
+<?php foreach (['message'=>'success','error'=>'danger'] as $key=>$type): if (!empty($_SESSION[$key])): ?><div class="alert alert-<?= $type ?>"><?= htmlspecialchars($_SESSION[$key]); unset($_SESSION[$key]); ?></div><?php endif; endforeach; ?>
 
 <?php
 $requestId = bin2hex(random_bytes(8));
@@ -94,8 +116,10 @@ if (is_array($decoded) && !empty($decoded['items']) && is_array($decoded['items'
             <div class="small text-muted">Reference: <?= htmlspecialchars($rec['id']) ?> &nbsp;|&nbsp; Stored: <?= htmlspecialchars($rec['created_at'] ?? '') ?></div>
         </div>
     </div>
-    <a href="admin/receipts.php" class="btn btn-secondary mt-3">Back</a>
-    <a href="admin/download_receipt.php?id=<?= urlencode($rec['id']) ?>" class="btn btn-success mt-3 ms-2" target="_blank">Download PDF</a>
+    <a href="receipts.php" class="btn btn-secondary mt-3">Back</a>
+    <button class="btn btn-outline-primary mt-3 ms-2 d-print-none" onclick="window.print()">Reprint</button>
+    <a href="download_receipt.php?id=<?= urlencode($rec['id']) ?>" class="btn btn-success mt-3 ms-2" target="_blank">Download PDF</a>
+    <?php if (user_can('receipts.email')): ?><form class="row g-2 mt-3 d-print-none" method="post"><div class="col-sm-5"><input required type="email" name="email" class="form-control" placeholder="Customer email"></div><div class="col-auto"><?= csrf_field() ?><button class="btn btn-primary">Email receipt</button></div></form><?php endif; ?>
 <?php else: ?>
     <div class="alert alert-warning">Snapshot could not be rendered as a receipt. Showing raw data. Request ID: <?= htmlspecialchars($requestId) ?></div>
     <pre><?= htmlspecialchars(substr($raw, 0, 2000), ENT_QUOTES, 'UTF-8') ?></pre>

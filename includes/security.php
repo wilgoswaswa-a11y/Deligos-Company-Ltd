@@ -32,10 +32,13 @@ function require_role(string $role): void
     }
 }
 
+const CSRF_TOKEN_MAX_AGE = 7200;
+
 function csrf_token(): string
 {
-    if (empty($_SESSION['csrf_token'])) {
+    if (empty($_SESSION['csrf_token']) || empty($_SESSION['csrf_token_expires']) || (int)$_SESSION['csrf_token_expires'] < time()) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $_SESSION['csrf_token_expires'] = time() + CSRF_TOKEN_MAX_AGE;
     }
 
     return $_SESSION['csrf_token'];
@@ -72,14 +75,31 @@ function require_post_csrf(): void
     }
 }
 
+function app_log_file(): string
+{
+    return __DIR__ . '/../logs/app.log';
+}
+
 function app_log(string $message): void
 {
-    $dir = __DIR__ . '/../logs';
+    $dir = dirname(app_log_file());
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
+    $file = app_log_file();
+
+    // Keep the shared application log capped: rotate at 5 MB, keep at most
+    // one rotated file. Prevents unbounded growth in long-running installs.
+    if (is_file($file) && filesize($file) > 5 * 1024 * 1024) {
+        $rotated = $file . '.1';
+        @rename($file, $rotated);
+        if (is_file($rotated) && filesize($rotated) > 10 * 1024 * 1024) {
+            @unlink($rotated);
+        }
+    }
+
     $line = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
-    @error_log($line, 3, $dir . '/app.log');
+    @file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
     @error_log($line);
 }
 

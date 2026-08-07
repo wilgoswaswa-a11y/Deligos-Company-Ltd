@@ -1,50 +1,9 @@
 <?php
-
-function load_mail_env(): void
-{
-    static $loaded = false;
-    if ($loaded) {
-        return;
-    }
-
-    $envFile = __DIR__ . '/../.env';
-    if (!is_file($envFile)) {
-        $loaded = true;
-        return;
-    }
-
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) {
-        $loaded = true;
-        return;
-    }
-
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '' || $line[0] === '#') {
-            continue;
-        }
-        if (strpos($line, '=') === false) {
-            continue;
-        }
-
-        [$name, $value] = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value, " \t\n\r\0\x0B\"'");
-
-        if (getenv($name) === false) {
-            putenv("$name=$value");
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-
-    $loaded = true;
-}
+require_once __DIR__ . '/env.php';
 
 function mail_debug_enabled(): bool
 {
-    return filter_var(getenv('MAIL_DEBUG'), FILTER_VALIDATE_BOOLEAN);
+    return env_bool('MAIL_DEBUG', false);
 }
 
 function mail_debug_log(string $message): void
@@ -57,23 +16,19 @@ function mail_debug_log(string $message): void
 
 function get_resend_config(): array
 {
-    load_mail_env();
-
     return [
-        'api_key' => getenv('RESEND_API_KEY') ?: '',
-        'from_address' => getenv('RESEND_FROM_ADDRESS') ?: (getenv('MAIL_FROM_ADDRESS') ?: ''),
-        'from_name' => getenv('RESEND_FROM_NAME') ?: (getenv('MAIL_FROM_NAME') ?: 'POS System'),
+        'api_key' => (string)(env('RESEND_API_KEY') ?: ''),
+        'from_address' => (string)(env('RESEND_FROM_ADDRESS') ?: env('MAIL_FROM_ADDRESS') ?: ''),
+        'from_name' => (string)(env('RESEND_FROM_NAME') ?: env('MAIL_FROM_NAME') ?: 'POS System'),
     ];
 }
 
 function get_brevo_config(): array
 {
-    load_mail_env();
-
     return [
-        'api_key' => getenv('BREVO_API_KEY') ?: '',
-        'from_address' => getenv('BREVO_FROM_ADDRESS') ?: (getenv('MAIL_FROM_ADDRESS') ?: ''),
-        'from_name' => getenv('BREVO_FROM_NAME') ?: (getenv('MAIL_FROM_NAME') ?: 'POS System'),
+        'api_key' => (string)(env('BREVO_API_KEY') ?: ''),
+        'from_address' => (string)(env('BREVO_FROM_ADDRESS') ?: env('MAIL_FROM_ADDRESS') ?: ''),
+        'from_name' => (string)(env('BREVO_FROM_NAME') ?: env('MAIL_FROM_NAME') ?: 'POS System'),
     ];
 }
 
@@ -177,7 +132,11 @@ function send_via_resend(array $config, string $email, string $name, string $sub
 
 function send_email_message(string $email, string $name, string $subject, string $html, string $text): bool
 {
-    require_once __DIR__ . '/../vendor/autoload.php';
+    // Composer is optional. If vendor/autoload.php exists, load it so any
+    // third-party packages are available; otherwise continue without it.
+    if (is_file(__DIR__ . '/../vendor/autoload.php')) {
+        require_once __DIR__ . '/../vendor/autoload.php';
+    }
 
     $brevo = get_brevo_config();
     $resend = get_resend_config();
@@ -218,7 +177,9 @@ function send_email_verification_code(string $email, string $name, string $code)
 
 function send_password_reset_email(string $email, string $name, string $token): bool
 {
-    require_once __DIR__ . '/../vendor/autoload.php';
+    if (is_file(__DIR__ . '/../vendor/autoload.php')) {
+        require_once __DIR__ . '/../vendor/autoload.php';
+    }
 
     $brevo = get_brevo_config();
     $resend = get_resend_config();
@@ -228,7 +189,7 @@ function send_password_reset_email(string $email, string $name, string $token): 
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
     // Allow overriding the base URL via APP_URL or BASE_URL in .env
-    $appUrl = getenv('APP_URL') ?: getenv('BASE_URL') ?: '';
+    $appUrl = (string)(env('APP_URL') ?: env('BASE_URL') ?: '');
     if ($appUrl !== '') {
         $base = rtrim($appUrl, '/');
         $resetUrl = $base . '/reset_password.php?token=' . urlencode($token);

@@ -82,6 +82,7 @@ document.querySelectorAll('.alert').forEach(alertBox => {
     });
 })();
 
+/* Loading states for forms and links. */
 (() => {
     const setButtonLoading = (button, label) => {
         if (!button || button.dataset.loading === 'true') {
@@ -126,6 +127,46 @@ document.querySelectorAll('.alert').forEach(alertBox => {
             link.classList.add('is-loading');
             link.dataset.originalHtml = link.innerHTML;
             link.innerHTML = `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${link.dataset.loadingText || 'Loading…'}`;
+        });
+    });
+})();
+
+/* Show/hide password toggles (shared across login pages and admin forms). */
+(() => {
+    const togglePassword = button => {
+        const input = document.getElementById(button.dataset.target);
+        if (!input) {
+            return;
+        }
+        const icon = button.querySelector('i');
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        if (icon) {
+            icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        }
+        button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    };
+
+    document.addEventListener('click', event => {
+        const button = event.target.closest('.toggle-password');
+        if (button) {
+            togglePassword(button);
+        }
+    });
+
+    document.querySelectorAll('.password-input').forEach(input => {
+        const hint = document.getElementById(input.dataset.hintId);
+        if (!hint) {
+            return;
+        }
+        input.addEventListener('focus', () => {
+            hint.style.display = 'block';
+        });
+        input.addEventListener('click', () => {
+            hint.style.display = 'block';
+        });
+        input.addEventListener('blur', () => {
+            hint.style.display = 'none';
         });
     });
 })();

@@ -6,7 +6,7 @@ Simple PHP/MySQL point-of-sale system.
 
 1. Create a MySQL database named `pos_system`.
 2. Import `database.sql`.
-3. For an existing installation, also apply `scripts/001_hardening_schema.sql`.
+3. For an existing installation, apply pending migrations with `php migrate.php` as a deploy step. Do not run migrations through web requests.
 4. Copy `.env.example` to `.env` and set your database credentials.
 5. Serve the project from XAMPP/Apache and visit `index.php`.
 
@@ -75,4 +75,3 @@ Railway service **Variables** tab, set these values and redeploy:
 Set `MAIL_DEBUG=true` temporarily when diagnosing delivery. Trigger a reset, then inspect the
 Railway deployment logs for the Brevo HTTP response. Do not leave debug logging enabled longer
 than needed. The Docker image includes PHP cURL because the Brevo HTTP API requires it.
-

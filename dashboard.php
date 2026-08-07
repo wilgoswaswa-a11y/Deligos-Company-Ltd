@@ -46,6 +46,8 @@ include 'includes/header.php';
         <a class="btn btn-success" href="inventory.php"><i class="bi bi-box-seam"></i> Add Product</a>
         <?php endif; ?>
         <a class="btn btn-outline-primary" href="reports.php"><i class="bi bi-bar-chart-line"></i> View Reports</a>
+        <?php if (user_can('reports.view')): ?><a class="btn btn-outline-secondary" href="analytics.php"><i class="bi bi-graph-up-arrow"></i> Analytics</a><?php endif; ?>
+        <?php if (user_can('purchase_orders.manage')): ?><a class="btn btn-outline-warning" href="purchase_orders.php"><i class="bi bi-cart-plus"></i> Purchase Orders</a><?php endif; ?>
     </div>
 </div>
 <div class="row g-3 mt-4 dashboard-summary-row">

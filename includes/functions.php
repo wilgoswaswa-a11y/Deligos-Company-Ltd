@@ -1,7 +1,5 @@
 <?php
-function sanitize($input) {
-    return htmlspecialchars(strip_tags(trim($input)), ENT_QUOTES, 'UTF-8');
-}
+require_once __DIR__ . '/env.php';
 
 function normalize_text(string $input): string
 {
@@ -73,6 +71,118 @@ function generateInvoiceNo() {
     // The sales.invoice_no column is varchar(20). This format is 19 characters:
     // INV-YYYYMMDD-XXXXXX.
     return 'INV-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
+}
+
+/**
+ * Server-authoritative invoice number. Same shape as generateInvoiceNo();
+ * kept as a separate, descriptive name for endpoints that mint numbers.
+ */
+function generate_invoice_no(): string
+{
+    return 'INV-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
+}
+
+/**
+ * Maximum discount allowed as a percentage of the sale subtotal.
+ * Reads MAX_DISCOUNT_PERCENT from the environment; 0-100.
+ * A value of 0 means discounts are disabled entirely.
+ */
+function max_discount_percent(): float
+{
+    $value = (float)(env('MAX_DISCOUNT_PERCENT') ?: 0);
+    return ($value >= 0 && $value <= 100) ? $value : 0.0;
+}
+
+/**
+ * Verify that a Lipana payment request exists server-side for this invoice
+ * and matches the amount being completed.
+ *
+ * @param PDO $pdo
+ * @param string $invoice_no
+ * @param float $amount
+ * @param string|null $payload_token Session-bound token returned when the STK push was initiated.
+ * @return bool
+ */
+function is_lipana_payment_verified(PDO $pdo, string $invoice_no, float $amount, ?string $payload_token = null): bool
+{
+    $stmt = $pdo->prepare(
+        "SELECT status, amount FROM lipana_payment_requests
+         WHERE invoice_no = ? AND (? IS NULL OR payload_token = ?)
+         LIMIT 1"
+    );
+    $stmt->execute([$invoice_no, $payload_token, $payload_token]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return false;
+    }
+    if (!in_array($row['status'], ['initiated', 'completed'], true)) {
+        return false;
+    }
+    return abs((float)$row['amount'] - $amount) < 0.01;
+}
+
+/**
+ * Record a successfully initiated Lipana STK push and return a payment token
+ * that must be presented when the sale is completed.
+ *
+ * @param PDO $pdo
+ * @param int $user_id
+ * @param string $invoice_no
+ * @param string $phone_number
+ * @param float $amount
+ * @return string|false Payload token, or false on failure.
+ */
+function record_lipana_payment_request(PDO $pdo, int $user_id, string $invoice_no, string $phone_number, float $amount)
+{
+    try {
+        $pdo->prepare("DELETE FROM lipana_payment_requests WHERE invoice_no = ?")->execute([$invoice_no]);
+        $token = bin2hex(random_bytes(24));
+        $stmt = $pdo->prepare(
+            "INSERT INTO lipana_payment_requests (user_id, invoice_no, phone_number, amount, status, payload_token)
+             VALUES (?, ?, ?, ?, 'initiated', ?)"
+        );
+        $stmt->execute([$user_id, $invoice_no, $phone_number, $amount, $token]);
+        return $token;
+    } catch (Throwable $e) {
+        app_log('record_lipana_payment_request failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Confirm a Lipana payment request for the given invoice as paid.
+ *
+ * @param PDO $pdo
+ * @param string $invoice_no
+ * @param string $payload_token
+ * @return bool
+ */
+function confirm_lipana_payment(PDO $pdo, string $invoice_no, string $payload_token): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "UPDATE lipana_payment_requests SET status = 'completed', completed_at = NOW()
+             WHERE invoice_no = ? AND payload_token = ? AND status IN ('initiated', 'completed')"
+        );
+        $stmt->execute([$invoice_no, $payload_token]);
+        return $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        app_log('confirm_lipana_payment failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Mark a Lipana payment request as failed so it cannot be used to complete a sale.
+ */
+function fail_lipana_payment(PDO $pdo, string $invoice_no): void
+{
+    try {
+        $pdo->prepare("UPDATE lipana_payment_requests SET status = 'failed' WHERE invoice_no = ? AND status = 'initiated'")
+            ->execute([$invoice_no]);
+    } catch (Throwable $e) {
+        app_log('fail_lipana_payment failed: ' . $e->getMessage());
+    }
 }
 
 function getProductById($pdo, $id) {
@@ -274,19 +384,42 @@ function require_permission(string $permission, string $fallback_url = 'dashboar
  * @param string|null $reason
  * @return int|false Refund ID or false on failure
  */
-function create_refund_request(int $sale_id, float $amount, ?string $reason = null)
+function create_refund_request(int $sale_id, float $amount, ?string $reason = null, array $items = [])
 {
     try {
         global $pdo;
         if (!$pdo) return false;
         $user_id = $_SESSION['user_id'] ?? null;
+        if ($sale_id < 1 || $amount <= 0) return false;
+        $pdo->beginTransaction();
+        $sale = $pdo->prepare('SELECT id, grand_total FROM sales WHERE id = ? FOR UPDATE');
+        $sale->execute([$sale_id]);
+        if (!$sale->fetch()) throw new RuntimeException('Sale not found.');
         $stmt = $pdo->prepare("INSERT INTO refunds (sale_id, requested_by, amount, reason) VALUES (?, ?, ?, ?)");
         $stmt->execute([$sale_id, $user_id, $amount, $reason]);
         $refund_id = (int)$pdo->lastInsertId();
+        if ($items) {
+            $itemStmt = $pdo->prepare('SELECT si.id, si.product_id, si.qty, si.unit_price FROM sale_items si WHERE si.id = ? AND si.sale_id = ?');
+            $insert = $pdo->prepare('INSERT INTO refund_items (refund_id, sale_item_id, product_id, qty, refund_amount) VALUES (?, ?, ?, ?, ?)');
+            $itemTotal = 0.0;
+            foreach ($items as $item) {
+                $itemStmt->execute([(int)($item['sale_item_id'] ?? 0), $sale_id]);
+                $saleItem = $itemStmt->fetch(PDO::FETCH_ASSOC);
+                $qty = (int)($item['qty'] ?? 0);
+                if (!$saleItem || $qty < 1 || $qty > (int)$saleItem['qty']) throw new RuntimeException('Invalid returned item.');
+                $lineRefund = $qty * (float)$saleItem['unit_price'];
+                $itemTotal += $lineRefund;
+                $insert->execute([$refund_id, $saleItem['id'], $saleItem['product_id'], $qty, $lineRefund]);
+            }
+            $pdo->prepare('UPDATE refunds SET amount = ? WHERE id = ?')->execute([$itemTotal, $refund_id]);
+            $amount = $itemTotal;
+        }
+        $pdo->commit();
 
-        audit_log('create', 'refunds', $refund_id, null, ['sale_id'=>$sale_id,'amount'=>$amount,'reason'=>$reason], 'Refund requested');
+        audit_log('create', 'refunds', $refund_id, null, ['sale_id'=>$sale_id,'amount'=>$amount,'reason'=>$reason,'items'=>$items], 'Refund requested');
         return $refund_id;
     } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         app_log('create_refund_request failed: ' . $e->getMessage());
         return false;
     }
@@ -308,12 +441,30 @@ function approve_refund(int $refund_id, bool $approve = true, ?string $note = nu
         $status = $approve ? 'approved' : 'rejected';
         $now = date('Y-m-d H:i:s');
 
-        $stmt = $pdo->prepare("UPDATE refunds SET status = ?, approved_by = ?, approved_at = ?, reason = COALESCE(reason, ?) WHERE id = ?");
-        $stmt->execute([$status, $approver, $now, $note, $refund_id]);
+        $pdo->beginTransaction();
+        $refundStmt = $pdo->prepare('SELECT * FROM refunds WHERE id = ? FOR UPDATE');
+        $refundStmt->execute([$refund_id]);
+        $refund = $refundStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$refund || $refund['status'] !== 'pending') throw new RuntimeException('This refund has already been processed.');
+        $items = $pdo->prepare('SELECT ri.*, p.name FROM refund_items ri JOIN products p ON p.id = ri.product_id WHERE ri.refund_id = ?');
+        $items->execute([$refund_id]);
+        $returnedItems = $items->fetchAll(PDO::FETCH_ASSOC);
+        if ($approve && !$returnedItems) throw new RuntimeException('A refund must include at least one returned item before it can be approved.');
+        if ($approve) {
+            foreach ($returnedItems as $item) {
+                if (!updateStock($pdo, (int)$item['product_id'], (int)$item['qty'], (int)$approver, 'refund', 'Refund #' . $refund_id)) {
+                    throw new RuntimeException('Could not restore returned stock.');
+                }
+            }
+        }
+        $stmt = $pdo->prepare("UPDATE refunds SET status = ?, approved_by = ?, approved_at = ?, reason = CASE WHEN ? <> '' THEN CONCAT(COALESCE(reason, ''), ' | Decision: ', ?) ELSE reason END WHERE id = ?");
+        $stmt->execute([$status, $approver, $now, $note ?? '', $note ?? '', $refund_id]);
+        $pdo->commit();
 
-        audit_log($approve ? 'approve' : 'reject', 'refunds', $refund_id, null, ['status'=>$status,'note'=>$note], 'Refund decision');
+        audit_log($approve ? 'approve' : 'reject', 'refunds', $refund_id, null, ['status'=>$status,'note'=>$note,'stock_restored'=>$approve ? $returnedItems : []], 'Refund decision');
         return true;
     } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         app_log('approve_refund failed: ' . $e->getMessage());
         return false;
     }
@@ -377,4 +528,3 @@ function create_closing_report(int $cashier_id, string $shift_start, string $shi
         return false;
     }
 }
-

@@ -8,22 +8,15 @@ if (!verify_csrf_request()) { http_response_code(403); exit; }
 require_once '../config/db.php';
 require_once '../includes/functions.php';
 
-function cc_log($msg) {
-    $file = __DIR__ . '/../logs/complete_sale.log';
-    $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n";
-    @file_put_contents($file, $line, FILE_APPEND);
-}
-
 $data = json_decode(file_get_contents('php://input'), true);
-cc_log('Request received. Data: ' . json_encode($data) . ' User: ' . $_SESSION['user_id']);
+app_log('Sale complete request: invoice=' . ($data['invoice_no'] ?? 'none') . ' user=' . $_SESSION['user_id'] . ' items=' . (is_array($data['items'] ?? null) ? count($data['items']) : 0));
 if (!$data || empty($data['items'])) {
-    cc_log('ERROR: No data or empty items');
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => app_error_message('No items', 'Please add at least one item before completing the sale.')]);
     exit;
 }
 
-$invoice_no = preg_match('/^INV-\d{8}-[A-Za-z0-9]{4,16}$/', (string)($data['invoice_no'] ?? '')) ? (string)$data['invoice_no'] : generateInvoiceNo();
+$invoice_no = preg_match('/^INV-\d{8}-[A-Fa-f0-9]{6}$/', (string)($data['invoice_no'] ?? '')) ? (string)$data['invoice_no'] : generate_invoice_no();
 $customer_id = !empty($data['customer_id']) ? validate_int($data['customer_id'], 1) : null;
 if (!empty($data['customer_id']) && $customer_id === null) {
     header('Content-Type: application/json');
@@ -37,6 +30,7 @@ if ($discount === null) {
 $payment_method = in_array((string)($data['payment_method'] ?? 'Cash'), ['Cash', 'Lipana'], true)
     ? (string)($data['payment_method'] ?? 'Cash')
     : 'Cash';
+$payload_token = isset($data['payload_token']) ? trim((string)$data['payload_token']) : null;
 $user_id = $_SESSION['user_id'];
 
 $total_amount = 0;
@@ -61,7 +55,7 @@ try {
     }
 
     $pdo->beginTransaction();
-    cc_log('Transaction started for invoice: ' . $invoice_no . ', customer: ' . $customer_id . ', user: ' . $user_id);
+    app_log('Transaction started for invoice: ' . $invoice_no . ', customer: ' . $customer_id . ', user: ' . $user_id);
 
     // ensure invoice_no uniqueness (fail early with explicit message)
     $istmt = $pdo->prepare("SELECT id FROM sales WHERE invoice_no = ?");
@@ -100,7 +94,23 @@ try {
     if ($discount > $total_amount) {
         throw new RuntimeException('Discount cannot be greater than subtotal.');
     }
+
+    // Enforce the discount policy: admin-configurable cap as a percentage of
+    // the subtotal (0 disables discounts entirely).
+    $maxPercent = max_discount_percent();
+    if ($discount > 0 && ($maxPercent <= 0 || $discount / $total_amount > $maxPercent / 100)) {
+        throw new RuntimeException('The applied discount exceeds the allowed limit for this sale.');
+    }
+
     $grand_total = $total_amount - $discount;
+
+    // Lipana sales must be backed by a server-side payment request with a
+    // matching payload token. The client cannot self-verify.
+    if ($payment_method === 'Lipana') {
+        if ($payload_token === null || !is_lipana_payment_verified($pdo, $invoice_no, $grand_total, $payload_token)) {
+            throw new RuntimeException('This Lipana payment has not been verified. Send the payment prompt for this exact sale before completing it.');
+        }
+    }
 
     $stmt = $pdo->prepare("INSERT INTO sales (invoice_no, user_id, customer_id, total_amount, discount, grand_total, payment_method)
                             VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -118,8 +128,21 @@ try {
         }
     }
 
+    // Mark the Lipana request as paid if this was a Lipana sale.
+    if ($payment_method === 'Lipana' && $payload_token !== null) {
+        confirm_lipana_payment($pdo, $invoice_no, $payload_token);
+    }
+
     $pdo->commit();
-    cc_log('SUCCESS: Sale committed. Sale ID: ' . $sale_id . ', Invoice: ' . $invoice_no);
+    app_log('SUCCESS: Sale committed. Sale ID: ' . $sale_id . ', Invoice: ' . $invoice_no);
+
+    // Audit any discount applied so discount abuse is traceable.
+    if ($discount > 0) {
+        $auditStmt = $pdo->prepare("SELECT total_amount, discount, grand_total FROM sales WHERE id = ?");
+        $auditStmt->execute([$sale_id]);
+        $auditRow = $auditStmt->fetch(PDO::FETCH_ASSOC);
+        audit_log('update', 'sales', $sale_id, null, $auditRow ?: [], 'Customer discount applied');
+    }
 
     // Build a receipt snapshot and store it (non-blocking for client)
     try {
@@ -157,17 +180,16 @@ try {
         // store_receipt_snapshot returns receipt id or false
         $receipt_id = store_receipt_snapshot((int)$sale_id, $snapshot);
     } catch (Throwable $e) {
-        cc_log('WARNING: Failed to store receipt snapshot: ' . $e->getMessage());
+        app_log('WARNING: Failed to store receipt snapshot: ' . $e->getMessage());
     }
 
     header('Content-Type: application/json');
     echo json_encode(['success' => true, 'invoice_no' => $invoice_no, 'sale_id' => (int)$sale_id, 'receipt_id' => isset($receipt_id) ? $receipt_id : null]);
     exit;
 } catch (Throwable $e) {
-    cc_log('ERROR: Exception caught: ' . $e->getMessage());
+    app_log('ERROR: Sale completion failed: ' . $e->getMessage());
     if ($pdo->inTransaction()) { $pdo->rollBack(); }
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => app_exception_message($e, 'We could not complete the sale right now. Please try again.')]);
     exit;
 }
-

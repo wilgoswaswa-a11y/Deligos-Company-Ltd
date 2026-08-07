@@ -7,9 +7,9 @@
     <title>POS System</title>
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="assets/favicon.ico">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/vendor/bootstrap-icons/font/bootstrap-icons.css">
+    <script src="assets/vendor/jquery/jquery-3.6.0.min.js"></script>
     <style>
         :root { --app-navy: #203247; --app-sidebar: #182536; --app-sidebar-hover: #2d4863; --app-text: #17202a; --app-surface-muted: #f2f5f8; }
         html, body { width: 100%; min-height: 100%; }
@@ -108,6 +108,7 @@
             .navbar .container-fluid { padding-inline: 10px; align-items: center; }
             .navbar-brand { gap: 0.55rem; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .navbar-logo { width: 42px; height: 42px; }
+            .navbar-toggler { order: 2; margin-left: auto; }
             .app-shell { padding: 10px; }
             .topbar { padding: 0.7rem; gap: 0.6rem; }
             .topbar-info strong, .topbar-profile strong { font-size: 0.95rem; }

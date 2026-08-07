@@ -1,9 +1,9 @@
 <?php
+$required_role = 'admin';
 require_once 'includes/auth.php';
 require_once 'config/db.php';
 require_once 'includes/functions.php';
 
-$required_role = 'admin';
 require_post_csrf();
 
 $pageTitle = 'Roles & Permissions';
