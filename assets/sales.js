@@ -101,6 +101,9 @@
             mpesa_code: lipanaRequest?.mpesa_code || null,
             mpesa_customer_name: lipanaRequest?.customer_name || null,
             mpesa_customer_phone: lipanaRequest?.customer_phone || null,
+            items: cart.map(function (item) {
+                return { name: item.name, qty: item.qty, total: item.price * item.qty };
+            })
         };
     }
 
@@ -117,6 +120,15 @@
         } else {
             $('#receiptMpesaCodeValue').text('');
             $('#receiptMpesaCode').hide();
+        }
+
+        const payer = [data.mpesa_customer_name, data.mpesa_customer_phone].filter(Boolean).join(' · ');
+        if (payer) {
+            $('#receiptMpesaCustomerValue').text(payer);
+            $('#receiptMpesaCustomer').show();
+        } else {
+            $('#receiptMpesaCustomerValue').text('');
+            $('#receiptMpesaCustomer').hide();
         }
 
         const receiptItems = $('#receiptItems');
@@ -761,6 +773,9 @@
                     if (res.success) {
                         notify('Sale completed! Invoice: ' + res.invoice_no, 'success');
                         lastReceiptData = getReceiptData();
+                        lastReceiptData.mpesa_code = res.mpesa_code || lastReceiptData.mpesa_code;
+                        lastReceiptData.mpesa_customer_name = res.mpesa_customer_name || lastReceiptData.mpesa_customer_name;
+                        lastReceiptData.mpesa_customer_phone = res.mpesa_customer_phone || lastReceiptData.mpesa_customer_phone;
                         cart = [];
                         lipanaRequest = null;
                         if (lipanaVerificationTimer) {

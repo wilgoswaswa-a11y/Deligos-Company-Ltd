@@ -150,6 +150,7 @@ include 'includes/header.php';
                 <p>Discount: KSh <span id="receiptDiscount">0.00</span></p>
                 <p><strong>Total: KSh <span id="receiptTotal">0.00</span></strong></p>
                 <p id="receiptMpesaCode" style="display:none;">MPESA Code: <strong><span id="receiptMpesaCodeValue"></span></strong></p>
+                <p id="receiptMpesaCustomer" style="display:none;">M-Pesa Customer: <strong><span id="receiptMpesaCustomerValue"></span></strong></p>
                 <p><small>Thank you!</small></p>
             </div>
             <div class="card-footer">

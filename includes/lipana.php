@@ -304,9 +304,25 @@ function lipana_transaction_reference_code(array $transaction): ?string
  */
 function lipana_transaction_mpesa_code(array $transaction): ?string
 {
-    foreach (['mpesaReceiptNumber', 'mpesa_receipt_number', 'mpesaCode', 'mpesa_code', 'receiptNumber', 'receipt_number', 'transactionCode', 'transaction_code'] as $key) {
-        if (isset($transaction[$key]) && is_scalar($transaction[$key]) && trim((string)$transaction[$key]) !== '') {
-            return trim((string)$transaction[$key]);
+    return lipana_find_transaction_value($transaction, ['mpesaReceiptNumber', 'mpesa_receipt_number', 'mpesaCode', 'mpesa_code', 'receiptNumber', 'receipt_number', 'transactionCode', 'transaction_code']);
+}
+
+/** Find a scalar callback field even when Lipana nests it in metadata. */
+function lipana_find_transaction_value(array $data, array $keys): ?string
+{
+    $wanted = array_map(static fn($key) => strtolower((string)$key), $keys);
+    foreach ($data as $key => $value) {
+        if (in_array(strtolower((string)$key), $wanted, true) && is_scalar($value) && trim((string)$value) !== '') {
+            return trim((string)$value);
+        }
+    }
+
+    foreach ($data as $value) {
+        if (is_array($value)) {
+            $found = lipana_find_transaction_value($value, $keys);
+            if ($found !== null) {
+                return $found;
+            }
         }
     }
 
@@ -319,21 +335,8 @@ function lipana_transaction_mpesa_code(array $transaction): ?string
  */
 function lipana_transaction_customer(array $transaction): array
 {
-    $name = null;
-    foreach (['customerName', 'customer_name', 'payerName', 'payer_name', 'senderName', 'sender_name', 'name'] as $key) {
-        if (isset($transaction[$key]) && is_scalar($transaction[$key]) && trim((string)$transaction[$key]) !== '') {
-            $name = trim((string)$transaction[$key]);
-            break;
-        }
-    }
+    $name = lipana_find_transaction_value($transaction, ['customerName', 'customer_name', 'payerName', 'payer_name', 'senderName', 'sender_name']);
+    $phone = lipana_find_transaction_value($transaction, ['customerPhone', 'customer_phone', 'payerPhone', 'payer_phone', 'phoneNumber', 'phone_number', 'phone']);
 
-    $phone = null;
-    foreach (['customerPhone', 'customer_phone', 'payerPhone', 'payer_phone', 'phoneNumber', 'phone_number', 'phone'] as $key) {
-        if (isset($transaction[$key]) && is_scalar($transaction[$key]) && trim((string)$transaction[$key]) !== '') {
-            $phone = normalize_lipana_phone((string)$transaction[$key]);
-            break;
-        }
-    }
-
-    return ['name' => $name, 'phone' => $phone ?: null];
+    return ['name' => $name, 'phone' => $phone ? normalize_lipana_phone($phone) : null];
 }
