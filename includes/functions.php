@@ -117,25 +117,11 @@ function is_lipana_payment_verified(PDO $pdo, string $invoice_no, float $amount,
         return true;
     }
 
-    if ($request['status'] !== 'initiated') {
-        return false;
-    }
-
-    if (!function_exists('lipana_find_transaction_for_request')) {
-        return false;
-    }
-
-    $transaction = lipana_find_transaction_for_request($request);
-    if (empty($transaction)) {
-        return false;
-    }
-
-    if (!lipana_transaction_is_successful($transaction, $amount)) {
-        return false;
-    }
-
-    update_lipana_payment_request_verification($pdo, $invoice_no, $payload_token, $transaction);
-    return true;
+    // Lipana's STK response provides a public TXN reference, while its
+    // /transactions/{id} endpoint currently expects an internal ObjectId.
+    // Do not accept a client-side reference or a failed lookup as proof of
+    // payment. The signed webhook is the authoritative confirmation path.
+    return false;
 }
 
 /**

@@ -6,6 +6,7 @@
     let invoiceNo = null;
     let lastReceiptData = null;
     let lipanaRequest = null;
+    let lipanaVerificationTimer = null;
 
     const maxDiscountPercent = parseFloat(document.body.dataset.maxDiscountPercent || '0') || 0;
 
@@ -459,6 +460,10 @@
             $('#lipanaVerification').addClass('d-none');
             $('#verifyLipanaBtn').addClass('d-none');
             lipanaRequest = null;
+            if (lipanaVerificationTimer) {
+                window.clearInterval(lipanaVerificationTimer);
+                lipanaVerificationTimer = null;
+            }
         }
     }
 
@@ -507,6 +512,21 @@
         $('#lipanaVerificationMessage').text('STK prompt sent. Ask the customer to approve it, then click Verify Payment.');
         $('#lipanaVerifiedDetails').addClass('d-none');
         $('#verifyLipanaBtn').removeClass('d-none');
+        if (lipanaVerificationTimer) {
+            window.clearInterval(lipanaVerificationTimer);
+        }
+        lipanaVerificationTimer = window.setInterval(function () {
+            verifyLipanaPayment().then(function (verification) {
+                if (verification.verified && lipanaVerificationTimer) {
+                    window.clearInterval(lipanaVerificationTimer);
+                    lipanaVerificationTimer = null;
+                    notify('Lipana payment verified. Review the M-Pesa code and customer details, then complete the sale.', 'success');
+                }
+            }).catch(function () {
+                // A manual retry remains available; do not interrupt checkout
+                // because a temporary network failure should not lose the sale.
+            });
+        }, 5000);
         return data;
     }
 
@@ -537,6 +557,10 @@
             $('#lipanaCustomerName').text(data.customer_name || 'Not supplied by Lipana');
             $('#lipanaCustomerPhone').text(data.customer_phone || 'Not supplied by Lipana');
             $('#lipanaVerifiedDetails').removeClass('d-none');
+            if (lipanaVerificationTimer) {
+                window.clearInterval(lipanaVerificationTimer);
+                lipanaVerificationTimer = null;
+            }
         } else {
             $('#lipanaVerifiedDetails').addClass('d-none');
         }
@@ -739,6 +763,10 @@
                         lastReceiptData = getReceiptData();
                         cart = [];
                         lipanaRequest = null;
+                        if (lipanaVerificationTimer) {
+                            window.clearInterval(lipanaVerificationTimer);
+                            lipanaVerificationTimer = null;
+                        }
                         invoiceNo = await mintInvoice();
                         $('#invoiceDisplay').text(invoiceNo);
                         $('#receiptInvoice').text(invoiceNo);

@@ -64,18 +64,12 @@ if ($action === 'verify_payment') {
         exit;
     }
 
-    $transaction = lipana_find_transaction_for_request($request);
-    if (!empty($transaction) && lipana_transaction_is_successful($transaction, (float)$request['amount'])) {
-        update_lipana_payment_request_verification($pdo, $request['invoice_no'], $request['payload_token'], $transaction);
-        $request = get_lipana_payment_request($pdo, $request['invoice_no'], $request['payload_token']) ?: $request;
-    }
-
     $verified = $request['status'] === 'completed';
     echo json_encode([
         'success' => true,
         'verified' => $verified,
         'status' => $request['status'],
-        'message' => $verified ? 'Payment verified successfully.' : 'Payment is still awaiting confirmation. Complete the prompt on the customer phone, then verify again.',
+        'message' => $verified ? 'Payment verified successfully.' : 'Payment is still awaiting Lipana webhook confirmation. Complete the prompt on the customer phone, then verify again.',
         'mpesa_code' => $request['mpesa_code'] ?: null,
         'customer_name' => $request['customer_name'] ?: null,
         'customer_phone' => $request['customer_phone'] ?: $request['phone_number'],
