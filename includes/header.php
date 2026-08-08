@@ -237,7 +237,7 @@ $navLinkClass = static function (string $page) use ($currentPage): string {
         <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open navigation menu">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <a class="navbar-brand" href="<?= app_url('dashboard.php') ?>"><img src="<?= asset_url('assets/DELIGOS%20LOGO.png') ?>" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POINT OF SALES (POS)</a>
+        <a class="navbar-brand" href="<?= app_url('dashboard.php') ?>"><img src="<?= asset_url('assets/DELIGOS%20LOGO.png') ?>" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POS</a>
     </div>
 </nav>
 <aside class="offcanvas offcanvas-start mobile-sidebar d-lg-none" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">

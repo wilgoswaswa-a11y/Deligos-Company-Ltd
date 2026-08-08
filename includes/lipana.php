@@ -305,10 +305,11 @@ function lipana_transaction_reference_code(array $transaction): ?string
 function lipana_transaction_mpesa_code(array $transaction): ?string
 {
     return lipana_find_transaction_value($transaction, [
-        'mpesaReceiptNumber', 'mpesa_receipt_number', 'mpesaCode', 'mpesa_code',
-        'receiptNumber', 'receipt_number', 'transactionCode', 'transaction_code',
-        'receiptNo', 'receipt_no', 'mpesaReceipt', 'mpesa_receipt',
-        'mpesaPaymentCode', 'paymentReceiptNumber', 'payment_receipt_number',
+        'mpesaReference', 'mpesa_reference', 'mpesaReceiptNumber', 'mpesa_receipt_number',
+        'mpesaCode', 'mpesa_code', 'receiptNumber', 'receipt_number',
+        'transactionCode', 'transaction_code', 'receiptNo', 'receipt_no',
+        'mpesaReceipt', 'mpesa_receipt', 'mpesaPaymentCode',
+        'paymentReceiptNumber', 'payment_receipt_number',
     ]);
 }
 
@@ -333,17 +334,47 @@ function lipana_find_transaction_value(array $data, array $keys): ?string
 {
     $wanted = array_map(static fn($key) => strtolower((string)$key), $keys);
     foreach ($data as $key => $value) {
-        if (in_array(strtolower((string)$key), $wanted, true) && is_scalar($value) && trim((string)$value) !== '') {
+        if (is_scalar($value) && in_array(strtolower((string)$key), $wanted, true) && trim((string)$value) !== '') {
             return trim((string)$value);
+        }
+        if (is_array($value)) {
+            if ($found = lipana_find_transaction_value($value, $keys)) {
+                return $found;
+            }
+            if ($named = lipana_find_named_transaction_value($value, $wanted)) {
+                return $named;
+            }
         }
     }
 
-    foreach ($data as $value) {
-        if (is_array($value)) {
-            $found = lipana_find_transaction_value($value, $keys);
-            if ($found !== null) {
-                return $found;
+    return null;
+}
+
+function lipana_find_named_transaction_value(array $data, array $wanted): ?string
+{
+    foreach ($data as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $name = null;
+        $value = null;
+        foreach ($item as $key => $entry) {
+            $lowerKey = strtolower((string)$key);
+            if (in_array($lowerKey, ['name', 'key', 'field', 'type'], true) && is_scalar($entry)) {
+                $name = strtolower(trim((string)$entry));
             }
+            if (in_array($lowerKey, ['value', 'val', 'data', 'content'], true) && is_scalar($entry)) {
+                $value = trim((string)$entry);
+            }
+        }
+
+        if ($name !== null && $value !== null && in_array($name, $wanted, true) && $value !== '') {
+            return $value;
+        }
+
+        if ($found = lipana_find_named_transaction_value($item, $wanted)) {
+            return $found;
         }
     }
 
