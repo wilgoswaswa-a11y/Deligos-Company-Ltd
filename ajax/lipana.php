@@ -71,7 +71,6 @@ if ($action === 'verify_payment') {
         'status' => $request['status'],
         'message' => $verified ? 'Payment verified successfully.' : 'Payment is still awaiting Lipana webhook confirmation. Complete the prompt on the customer phone, then verify again.',
         'mpesa_code' => $request['mpesa_code'] ?: null,
-        'customer_name' => $request['customer_name'] ?: null,
         'customer_phone' => $request['customer_phone'] ?: $request['phone_number'],
     ]);
     exit;

@@ -257,7 +257,7 @@ function update_lipana_payment_request_verification(PDO $pdo, string $invoice_no
                  transaction_id = COALESCE(NULLIF(?, ''), transaction_id),
                  checkout_request_id = COALESCE(NULLIF(?, ''), checkout_request_id),
                  mpesa_code = COALESCE(NULLIF(?, ''), mpesa_code),
-                 customer_name = COALESCE(NULLIF(?, ''), customer_name),
+                 customer_name = NULL,
                  customer_phone = COALESCE(NULLIF(?, ''), customer_phone),
                  updated_at = NOW()
              WHERE invoice_no = ? AND payload_token = ? AND status IN ('initiated', 'completed')"
@@ -266,7 +266,6 @@ function update_lipana_payment_request_verification(PDO $pdo, string $invoice_no
             trim((string)($transaction['transactionId'] ?? $transaction['transaction_id'] ?? '')),
             trim((string)($transaction['checkoutRequestID'] ?? $transaction['checkout_request_id'] ?? '')),
             lipana_transaction_mpesa_code($transaction) ?? '',
-            $customer['name'] ?? '',
             $customer['phone'] ?? '',
             $invoice_no,
             $payload_token,

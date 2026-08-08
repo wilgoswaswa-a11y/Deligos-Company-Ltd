@@ -81,6 +81,9 @@ if (!function_exists('app_url')) {
             .sidebar { display: none; }
             .main-content { margin-left: 0; width: 100%; padding-top: 0; }
             .topbar { position: static; z-index: auto; width: auto; margin-bottom: 0; padding: 0.85rem 1rem; }
+            .navbar .container-fluid { position: relative; display: flex; align-items: center; justify-content: space-between; }
+            .navbar-brand { margin-right: 0; width: auto; max-width: calc(100% - 60px); }
+            .navbar-toggler { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); margin: 0; }
             .mobile-sidebar { --bs-offcanvas-zindex: 1200; width: min(82vw, 320px); background: var(--app-sidebar); color: #fff; }
             .offcanvas-backdrop { z-index: 1190; }
             .mobile-sidebar .offcanvas-header { border-bottom: 1px solid rgba(255,255,255,.12); }

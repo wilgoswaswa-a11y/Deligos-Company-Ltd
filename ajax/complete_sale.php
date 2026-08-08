@@ -194,7 +194,7 @@ try {
             'customer_id' => $customer_id,
             'payment_method' => $payment_method,
             'mpesa_code' => $mpesa_code,
-            'mpesa_customer_name' => $paymentRequest['customer_name'] ?? null,
+            'mpesa_customer_name' => null,
             'mpesa_customer_phone' => $paymentRequest['customer_phone'] ?? null,
             'items' => array_map(function($it){
                 return [
@@ -218,7 +218,7 @@ try {
     }
 
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'invoice_no' => $invoice_no, 'sale_id' => (int)$sale_id, 'receipt_id' => isset($receipt_id) ? $receipt_id : null, 'mpesa_code' => $mpesa_code, 'mpesa_customer_name' => $paymentRequest['customer_name'] ?? null, 'mpesa_customer_phone' => $paymentRequest['customer_phone'] ?? null]);
+    echo json_encode(['success' => true, 'invoice_no' => $invoice_no, 'sale_id' => (int)$sale_id, 'receipt_id' => isset($receipt_id) ? $receipt_id : null, 'mpesa_code' => $mpesa_code, 'mpesa_customer_name' => null, 'mpesa_customer_phone' => $paymentRequest['customer_phone'] ?? null]);
     exit;
 } catch (Throwable $e) {
     app_log('ERROR: Sale completion failed: ' . $e->getMessage());

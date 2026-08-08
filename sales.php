@@ -114,7 +114,6 @@ include 'includes/header.php';
               <div id="lipanaVerificationMessage">Send the request, then verify it after the customer approves the M-Pesa prompt.</div>
               <dl id="lipanaVerifiedDetails" class="row mb-0 mt-2 d-none">
                 <dt class="col-sm-5">M-Pesa code</dt><dd id="lipanaMpesaCode" class="col-sm-7 mb-1"></dd>
-                <dt class="col-sm-5">Customer</dt><dd id="lipanaCustomerName" class="col-sm-7 mb-1"></dd>
                 <dt class="col-sm-5">Phone</dt><dd id="lipanaCustomerPhone" class="col-sm-7 mb-0"></dd>
               </dl>
             </div>
