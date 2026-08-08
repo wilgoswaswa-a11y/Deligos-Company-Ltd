@@ -103,8 +103,9 @@
         #searchResults span { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
         /* Keep dialogs, their backdrop and feedback above the fixed secondary
            topbar (z-index: 1100) so the navigation cannot intercept clicks. */
-        .modal-backdrop { z-index: 1290; }
-        .modal { z-index: 1300; }
+        /* Dialogs must stay above both fixed navigation layers. */
+        .modal-backdrop { z-index: 1990 !important; }
+        .modal { z-index: 2000 !important; }
         .app-toast-container { z-index: 1310; }
         .app-toast { min-width: 280px; box-shadow: 0 0.75rem 1.5rem rgba(0,0,0,.18); }
         /* Responsive motion: compact screens use shorter travel distances so
