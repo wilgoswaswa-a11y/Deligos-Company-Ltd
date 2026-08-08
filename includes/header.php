@@ -134,10 +134,11 @@
             h2, .h2 { font-size: 1.4rem; }
             h3, .h3 { font-size: 1.2rem; }
             .navbar { height: 72px; min-height: 72px; padding: 0.65rem 0.8rem; }
-            .navbar .container-fluid { padding-inline: 10px; align-items: center; }
-            .navbar-brand { gap: 0.55rem; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .navbar .container-fluid { position: relative; padding-inline: 10px; align-items: center; flex-wrap: nowrap; }
+            .navbar-brand { gap: 0.55rem; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0; padding-right: 3.5rem; }
             .navbar-logo { width: 42px; height: 42px; }
-            .navbar-toggler { order: 2; margin-left: auto; }
+            /* Pin the menu control so a long company name cannot displace it. */
+            .navbar-toggler { position: absolute; z-index: 1; right: 10px; top: 50%; transform: translateY(-50%); margin: 0; }
             .app-shell { padding: 10px; }
             .topbar { padding: 0.7rem; gap: 0.6rem; }
             .topbar-info strong, .topbar-profile strong { font-size: 0.95rem; }

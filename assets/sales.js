@@ -456,6 +456,12 @@
 
         if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             const lipanaModalEl = document.getElementById('lipanaModal');
+            // Bootstrap modals must not remain inside a grid/column. Moving it
+            // to body prevents the grid from creating a stacking context that
+            // leaves the dialog beneath its dark backdrop.
+            if (lipanaModalEl && lipanaModalEl.parentElement !== document.body) {
+                document.body.appendChild(lipanaModalEl);
+            }
             const lipanaModal = bootstrap.Modal.getOrCreateInstance(lipanaModalEl);
             lipanaModal.show();
         } else {
