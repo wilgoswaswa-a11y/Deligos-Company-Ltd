@@ -123,7 +123,7 @@ if (is_array($decoded) && !empty($decoded['items']) && is_array($decoded['items'
 <?php else: ?>
     <div class="alert alert-warning">Snapshot could not be rendered as a receipt. Showing raw data. Request ID: <?= htmlspecialchars($requestId) ?></div>
     <pre><?= htmlspecialchars(substr($raw, 0, 2000), ENT_QUOTES, 'UTF-8') ?></pre>
-    <a href="admin/receipts.php" class="btn btn-secondary">Back</a>
+    <a href="receipts.php" class="btn btn-secondary">Back</a>
 <?php endif; ?>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

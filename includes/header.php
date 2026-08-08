@@ -1,3 +1,35 @@
+<?php
+if (!function_exists('app_base_url')) {
+    function app_base_url(): string
+    {
+        $documentRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '') ?: '';
+        $appRoot = realpath(dirname(__DIR__)) ?: '';
+        if ($documentRoot !== '' && $appRoot !== '' && strpos($appRoot, $documentRoot) === 0) {
+            $relative = substr($appRoot, strlen($documentRoot));
+            $relative = str_replace('\\', '/', $relative);
+            $relative = '/' . trim($relative, '/');
+            return $relative === '/' ? '' : $relative;
+        }
+        return '';
+    }
+}
+
+if (!function_exists('asset_url')) {
+    function asset_url(string $path): string
+    {
+        $base = app_base_url();
+        return ($base !== '' ? $base : '') . '/' . ltrim($path, '/');
+    }
+}
+
+if (!function_exists('app_url')) {
+    function app_url(string $path): string
+    {
+        $base = app_base_url();
+        return ($base !== '' ? $base : '') . '/' . ltrim($path, '/');
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,11 +37,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <title>POS System</title>
-    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="shortcut icon" type="image/x-icon" href="assets/favicon.ico">
-    <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/vendor/bootstrap-icons/font/bootstrap-icons.css">
-    <script src="assets/vendor/jquery/jquery-3.6.0.min.js"></script>
+    <link rel="icon" type="image/x-icon" href="<?= asset_url('assets/favicon.ico') ?>">
+    <link rel="shortcut icon" type="image/x-icon" href="<?= asset_url('assets/favicon.ico') ?>">
+    <link href="<?= asset_url('assets/vendor/bootstrap/css/bootstrap.min.css') ?>" rel="stylesheet">
+    <link rel="stylesheet" href="<?= asset_url('assets/vendor/bootstrap-icons/font/bootstrap-icons.css') ?>">
+    <script src="<?= asset_url('assets/vendor/jquery/jquery-3.6.0.min.js') ?>"></script>
     <style>
         :root { --app-navy: #203247; --app-sidebar: #182536; --app-sidebar-hover: #2d4863; --app-text: #17202a; --app-surface-muted: #f2f5f8; }
         html, body { width: 100%; min-height: 100%; }
@@ -159,6 +191,37 @@
             .app-toast-container { left: 0; right: 0; padding: 0.75rem !important; }
             .app-toast { width: 100%; min-width: 0; }
         }
+
+        /* Mobile: larger phones */
+        @media (min-width: 480px) {
+            .app-shell { padding-inline: 1rem; }
+            .mobile-sidebar { width: min(76vw, 320px); }
+            .card { border-radius: 0.9rem; }
+            .card-body { padding: 1rem; }
+            .table-responsive { margin-top: 1.25rem; }
+            .btn { min-width: 120px; }
+        }
+
+        /* Tablet */
+        @media (min-width: 768px) {
+            .app-shell { padding-inline: 1.25rem; }
+            .card-body { padding: 1.1rem; }
+            .table-responsive { margin-top: 1.5rem; }
+            .table { min-width: 100%; }
+        }
+
+        /* Laptop/Desktop */
+        @media (min-width: 1024px) {
+            .app-shell { padding-inline: 1.5rem; }
+            .main-content { padding-top: 1rem; }
+            .table-responsive { overflow-x: auto; }
+        }
+
+        /* Large screens */
+        @media (min-width: 1440px) {
+            .app-shell { padding-inline: 2rem; }
+            .main-content { padding-top: 1.25rem; }
+        }
     </style>
 </head>
 <body>
@@ -174,7 +237,7 @@ $navLinkClass = static function (string $page) use ($currentPage): string {
         <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open navigation menu">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <a class="navbar-brand" href="dashboard.php"><img src="assets/DELIGOS%20LOGO.png" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POINT OF SALES (POS)</a>
+        <a class="navbar-brand" href="<?= app_url('dashboard.php') ?>"><img src="<?= asset_url('assets/DELIGOS%20LOGO.png') ?>" class="navbar-logo" alt="Deligos Company"> DELIGOS COMPANY POINT OF SALES (POS)</a>
     </div>
 </nav>
 <aside class="offcanvas offcanvas-start mobile-sidebar d-lg-none" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
@@ -185,24 +248,24 @@ $navLinkClass = static function (string $page) use ($currentPage): string {
     <div class="offcanvas-body">
         <nav class="nav flex-column">
             <div class="nav-section">Operations</div>
-            <a class="<?= $navLinkClass('dashboard.php') ?>" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
-            <a class="<?= $navLinkClass('sales.php') ?>" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
+            <a class="<?= $navLinkClass('dashboard.php') ?>" href="<?= app_url('dashboard.php') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="<?= $navLinkClass('sales.php') ?>" href="<?= app_url('sales.php') ?>"><i class="bi bi-basket3"></i> Sales</a>
             <div class="nav-section">Catalog</div>
-            <a class="<?= $navLinkClass('inventory.php') ?>" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
-            <a class="<?= $navLinkClass('customers.php') ?>" href="customers.php"><i class="bi bi-people"></i> Customers</a>
+            <a class="<?= $navLinkClass('inventory.php') ?>" href="<?= app_url('inventory.php') ?>"><i class="bi bi-box-seam"></i> Inventory</a>
+            <a class="<?= $navLinkClass('customers.php') ?>" href="<?= app_url('customers.php') ?>"><i class="bi bi-people"></i> Customers</a>
             <div class="nav-section">Insights</div>
-            <a class="<?= $navLinkClass('reports.php') ?>" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <a class="<?= $navLinkClass('reports.php') ?>" href="<?= app_url('reports.php') ?>"><i class="bi bi-bar-chart-line"></i> Reports</a>
             <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
-            <a class="<?= $navLinkClass('profits.php') ?>" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
-            <a class="<?= $navLinkClass('commissions.php') ?>" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
-            <a class="<?= $navLinkClass('expenses.php') ?>" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
+            <a class="<?= $navLinkClass('profits.php') ?>" href="<?= app_url('profits.php') ?>"><i class="bi bi-currency-dollar"></i> Profits</a>
+            <a class="<?= $navLinkClass('commissions.php') ?>" href="<?= app_url('commissions.php') ?>"><i class="bi bi-cash-stack"></i> Commissions</a>
+            <a class="<?= $navLinkClass('expenses.php') ?>" href="<?= app_url('expenses.php') ?>"><i class="bi bi-wallet2"></i> Expenses</a>
             <div class="nav-section">Administration</div>
-            <a class="<?= $navLinkClass('users.php') ?>" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
+            <a class="<?= $navLinkClass('users.php') ?>" href="<?= app_url('users.php') ?>"><i class="bi bi-people-fill"></i> Users</a>
             <?php endif; ?>
         </nav>
         <div class="mobile-sidebar-footer">
-            <a class="<?= $navLinkClass('profile.php') ?>" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
-            <a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            <a class="<?= $navLinkClass('profile.php') ?>" href="<?= app_url('profile.php') ?>"><i class="bi bi-person-circle"></i> Profile</a>
+            <a class="nav-link" href="<?= app_url('logout.php') ?>"><i class="bi bi-box-arrow-right"></i> Logout</a>
         </div>
     </div>
 </aside>
@@ -211,24 +274,24 @@ $navLinkClass = static function (string $page) use ($currentPage): string {
         <div class="sidebar-gap" aria-hidden="true"></div>
         <nav class="nav flex-column">
             <div class="nav-section">Operations</div>
-            <a class="<?= $navLinkClass('dashboard.php') ?>" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
-            <a class="<?= $navLinkClass('sales.php') ?>" href="sales.php"><i class="bi bi-basket3"></i> Sales</a>
+            <a class="<?= $navLinkClass('dashboard.php') ?>" href="<?= app_url('dashboard.php') ?>"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="<?= $navLinkClass('sales.php') ?>" href="<?= app_url('sales.php') ?>"><i class="bi bi-basket3"></i> Sales</a>
             <div class="nav-section">Catalog</div>
-            <a class="<?= $navLinkClass('inventory.php') ?>" href="inventory.php"><i class="bi bi-box-seam"></i> Inventory</a>
-            <a class="<?= $navLinkClass('customers.php') ?>" href="customers.php"><i class="bi bi-people"></i> Customers</a>
+            <a class="<?= $navLinkClass('inventory.php') ?>" href="<?= app_url('inventory.php') ?>"><i class="bi bi-box-seam"></i> Inventory</a>
+            <a class="<?= $navLinkClass('customers.php') ?>" href="<?= app_url('customers.php') ?>"><i class="bi bi-people"></i> Customers</a>
             <div class="nav-section">Insights</div>
-            <a class="<?= $navLinkClass('reports.php') ?>" href="reports.php"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <a class="<?= $navLinkClass('reports.php') ?>" href="<?= app_url('reports.php') ?>"><i class="bi bi-bar-chart-line"></i> Reports</a>
             <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
-            <a class="<?= $navLinkClass('profits.php') ?>" href="profits.php"><i class="bi bi-currency-dollar"></i> Profits</a>
-            <a class="<?= $navLinkClass('commissions.php') ?>" href="commissions.php"><i class="bi bi-cash-stack"></i> Commissions</a>
-            <a class="<?= $navLinkClass('expenses.php') ?>" href="expenses.php"><i class="bi bi-wallet2"></i> Expenses</a>
+            <a class="<?= $navLinkClass('profits.php') ?>" href="<?= app_url('profits.php') ?>"><i class="bi bi-currency-dollar"></i> Profits</a>
+            <a class="<?= $navLinkClass('commissions.php') ?>" href="<?= app_url('commissions.php') ?>"><i class="bi bi-cash-stack"></i> Commissions</a>
+            <a class="<?= $navLinkClass('expenses.php') ?>" href="<?= app_url('expenses.php') ?>"><i class="bi bi-wallet2"></i> Expenses</a>
             <div class="nav-section">Administration</div>
-            <a class="<?= $navLinkClass('users.php') ?>" href="users.php"><i class="bi bi-people-fill"></i> Users</a>
+            <a class="<?= $navLinkClass('users.php') ?>" href="<?= app_url('users.php') ?>"><i class="bi bi-people-fill"></i> Users</a>
             <?php endif; ?>
         </nav>
         <div class="sidebar-footer">
-            <a class="<?= $navLinkClass('profile.php') ?>" href="profile.php"><i class="bi bi-person-circle"></i> Profile</a>
-            <a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            <a class="<?= $navLinkClass('profile.php') ?>" href="<?= app_url('profile.php') ?>"><i class="bi bi-person-circle"></i> Profile</a>
+            <a class="nav-link" href="<?= app_url('logout.php') ?>"><i class="bi bi-box-arrow-right"></i> Logout</a>
         </div>
     </aside>
     <div class="main-content">

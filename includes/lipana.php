@@ -304,7 +304,28 @@ function lipana_transaction_reference_code(array $transaction): ?string
  */
 function lipana_transaction_mpesa_code(array $transaction): ?string
 {
-    return lipana_find_transaction_value($transaction, ['mpesaReceiptNumber', 'mpesa_receipt_number', 'mpesaCode', 'mpesa_code', 'receiptNumber', 'receipt_number', 'transactionCode', 'transaction_code']);
+    return lipana_find_transaction_value($transaction, [
+        'mpesaReceiptNumber', 'mpesa_receipt_number', 'mpesaCode', 'mpesa_code',
+        'receiptNumber', 'receipt_number', 'transactionCode', 'transaction_code',
+        'receiptNo', 'receipt_no', 'mpesaReceipt', 'mpesa_receipt',
+        'mpesaPaymentCode', 'paymentReceiptNumber', 'payment_receipt_number',
+    ]);
+}
+
+function lipana_find_transaction_identifier(array $payload): ?string
+{
+    return lipana_find_transaction_value($payload, [
+        'transactionId', 'transaction_id', 'transactionID', 'transactionID',
+        'checkoutRequestID', 'checkout_request_id', 'checkoutRequestId', 'checkout_requestId',
+    ]);
+}
+
+function lipana_find_checkout_request_identifier(array $payload): ?string
+{
+    return lipana_find_transaction_value($payload, [
+        'checkoutRequestID', 'checkout_request_id', 'checkoutRequestId', 'checkout_requestId',
+        'checkout_id', 'checkoutid', 'requestId', 'request_id',
+    ]);
 }
 
 /** Find a scalar callback field even when Lipana nests it in metadata. */
@@ -335,8 +356,16 @@ function lipana_find_transaction_value(array $data, array $keys): ?string
  */
 function lipana_transaction_customer(array $transaction): array
 {
-    $name = lipana_find_transaction_value($transaction, ['customerName', 'customer_name', 'payerName', 'payer_name', 'senderName', 'sender_name']);
-    $phone = lipana_find_transaction_value($transaction, ['customerPhone', 'customer_phone', 'payerPhone', 'payer_phone', 'phoneNumber', 'phone_number', 'phone']);
+    $name = lipana_find_transaction_value($transaction, [
+        'customerName', 'customer_name', 'payerName', 'payer_name',
+        'senderName', 'sender_name', 'customerFullName', 'customer_full_name',
+        'payerFullName', 'payer_full_name', 'senderFullName', 'sender_full_name',
+        'fullName', 'full_name', 'name',
+    ]);
+    $phone = lipana_find_transaction_value($transaction, [
+        'customerPhone', 'customer_phone', 'payerPhone', 'payer_phone',
+        'phoneNumber', 'phone_number', 'phone', 'msisdn',
+    ]);
 
     return ['name' => $name, 'phone' => $phone ? normalize_lipana_phone($phone) : null];
 }

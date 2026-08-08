@@ -1,8 +1,8 @@
 </div> <!-- app-shell -->
     </div> <!-- main-content -->
 </div> <!-- app-layout -->
-<script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-<script src="assets/app.js"></script>
+<script src="<?= asset_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
+<script src="<?= asset_url('assets/app.js') ?>"></script>
 <script>
 // Keep every Bootstrap modal above fixed navigation, off-canvas menus, and
 // page content. A modal placed inside a grid can otherwise inherit a stacking
