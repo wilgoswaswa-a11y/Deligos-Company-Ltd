@@ -141,7 +141,7 @@ if (!function_exists('app_url')) {
         /* Dialogs must stay above both fixed navigation layers. */
         .modal-backdrop { z-index: 1990 !important; }
         .modal { z-index: 2000 !important; }
-        .app-toast-container { z-index: 1310; }
+        .app-toast-container { z-index: 2100; }
         .app-toast { min-width: 280px; box-shadow: 0 0.75rem 1.5rem rgba(0,0,0,.18); }
         /* Responsive motion: compact screens use shorter travel distances so
            animations remain natural without pushing content outside view. */

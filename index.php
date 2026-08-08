@@ -13,6 +13,7 @@ $login = '';
 $login_type = 'username';
 $verification_message = '';
 $verification_resend_email = '';
+$verified_message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
     require_post_csrf();
     $login = trim($_POST['username'] ?? '');
@@ -101,6 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         }
     }
 }
+if (!empty($_GET['verified'])) {
+    $verified_message = 'Your email address has been verified. Please log in.';
+}
 ?>
 <!DOCTYPE html>
 <html>
@@ -142,6 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         <div class="card-body">
             <?php if ($error): ?>
                 <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+            <?php if ($verified_message): ?>
+                <div class="alert alert-success"><?= htmlspecialchars($verified_message) ?></div>
             <?php endif; ?>
             <?php if ($verification_message): ?>
                 <div class="alert alert-warning">

@@ -83,7 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->prepare('UPDATE users SET email_verified = 1, email_verification_code = NULL, email_verification_expires_at = NULL, email_verification_resend_count = 0, email_verification_last_sent_at = NULL WHERE id = ?');
                     $stmt->execute([$user['id']]);
                     unset($_SESSION['pending_verify_email']);
-                    $success = 'Your email address has been verified. You can now log in.';
+                    // Redirect to login page so the user can sign in immediately
+                    header('Location: index.php?verified=1');
+                    exit;
                 } else {
                     $error = 'The verification code is invalid or has expired. Request a new code if needed.';
                 }

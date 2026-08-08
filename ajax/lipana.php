@@ -1,7 +1,31 @@
 <?php
+require_once __DIR__ . '/../includes/env.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/lipana.php';
+
+function use_lipana_mock_mode(): bool
+{
+    if (env_bool('LIPANA_USE_MOCK', false)) {
+        return true;
+    }
+
+    if (!empty($_SERVER['HTTP_X_LIPANA_MOCK']) && filter_var($_SERVER['HTTP_X_LIPANA_MOCK'], FILTER_VALIDATE_BOOLEAN)) {
+        return true;
+    }
+
+    if (!empty($_COOKIE['LIPANA_USE_MOCK']) && filter_var($_COOKIE['LIPANA_USE_MOCK'], FILTER_VALIDATE_BOOLEAN)) {
+        return true;
+    }
+
+    return false;
+}
+
+if (use_lipana_mock_mode()) {
+    app_log('Lipana mock mode active');
+    require __DIR__ . '/../tests/mock/lipana_mock.php';
+    exit;
+}
 
 header('Content-Type: application/json');
 

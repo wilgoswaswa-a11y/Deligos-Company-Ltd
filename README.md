@@ -62,6 +62,21 @@ Notes:
 - Ensure `BREVO_API_KEY` is set in your environment or in `.env` before attempting password resets.
 - Logging for mail activity can be enabled by setting `MAIL_DEBUG=true` in `.env`.
 
+## Lipana mock mode
+When running locally, you can enable the built-in Lipana mock endpoint by setting `LIPANA_USE_MOCK=true` in your `.env` file.
+
+This app also supports activating mock mode per request with the `X-LIPANA-MOCK: 1` header or via a `LIPANA_USE_MOCK=1` cookie on `ajax/lipana.php`.
+
+Mock behavior includes:
+
+- successful `initiate_payment` and `verify_payment`
+- pending verification for `payload_token` values ending in `-pending`
+- failed verification for `payload_token` values ending in `-failed`
+- expired request handling for `payload_token` values ending in `-expired`
+- malformed `payload_token` requests return a clear mock error message
+
+Use header-based activation in Playwright tests to exercise the app's actual mock mode end-to-end.
+
 ### Railway deployment
 
 Railway does not receive your local `.env` file (it is intentionally ignored by Git). In the

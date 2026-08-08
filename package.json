@@ -1,0 +1,14 @@
+{
+  "name": "deligos-pos-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.35.0",
+    "cross-env": "^9.0.1"
+  },
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:mock": "cross-env LIPANA_USE_MOCK=1 playwright test"
+  }
+}

@@ -29,12 +29,30 @@
     function escapeHtml(value) {
         return String(value)
             .replace(/&/g, '&')
-            .replace(/</g, '<')
-            .replace(/>/g, '>')
-            .replace(/"/g, '"')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
     }
+    function setButtonLoading($btn, label) {
+        if (!$btn || $btn.length === 0) {
+            return;
+        }
+        $btn.data('origHtml', $btn.html())
+            .prop('disabled', true)
+            .attr('aria-busy', 'true')
+            .html('<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>' + escapeHtml(label));
+    }
 
+    function clearButtonLoading($btn, defaultHtml) {
+        if (!$btn || $btn.length === 0) {
+            return;
+        }
+        $btn.prop('disabled', false)
+            .removeAttr('aria-busy')
+            .html($btn.data('origHtml') || defaultHtml || '');
+        $btn.removeData('origHtml');
+    }
     function receiptHasItems() {
         return cart.length > 0 || (lastReceiptData && lastReceiptData.items.length > 0);
     }
@@ -310,6 +328,9 @@
             return;
         }
 
+        const $btn = $('#printReceiptBtn');
+        setButtonLoading($btn, 'Printing...');
+
         const data = getReceiptData();
         const blob = await makeReceiptPdf(data);
         const printUrl = URL.createObjectURL(blob);
@@ -332,6 +353,7 @@
             frame.contentWindow.print();
             setTimeout(function () {
                 URL.revokeObjectURL(printUrl);
+                clearButtonLoading($btn, '<i class="bi bi-printer"></i> Print Receipt');
             }, 30000);
         };
         document.body.appendChild(frame);
@@ -343,6 +365,9 @@
             return;
         }
 
+        const $btn = $('#downloadReceiptBtn');
+        setButtonLoading($btn, 'Preparing...');
+
         const data = getReceiptData();
         const blob = await makeReceiptPdf(data);
         const link = document.createElement('a');
@@ -352,6 +377,7 @@
         link.click();
         URL.revokeObjectURL(link.href);
         link.remove();
+        clearButtonLoading($btn, '<i class="bi bi-file-earmark-pdf"></i> Download PDF');
     }
 
     /* ------------------------------------------------------------------ *
@@ -422,6 +448,11 @@
             $('#searchResults').html('');
             return;
         }
+        const $searchBtn = $('#searchBtn');
+        if ($searchBtn.length) {
+            setButtonLoading($searchBtn, 'Searching...');
+        }
+
         $.ajax({
             url: 'ajax/search_products.php',
             method: 'GET',
@@ -438,6 +469,13 @@
                     `;
                 });
                 $('#searchResults').html(html || '<div class="text-muted">No products found.</div>');
+                if ($searchBtn.length) {
+                    clearButtonLoading($searchBtn, '<i class="bi bi-search"></i>');
+                }
+            }
+        }).fail(function(){
+            if ($searchBtn.length) {
+                clearButtonLoading($searchBtn, '<i class="bi bi-search"></i>');
             }
         });
     }
@@ -625,12 +663,14 @@
             if (existing) {
                 if (existing.qty < stock) {
                     existing.qty++;
+                    notify('Product quantity updated.', 'success');
                 } else {
                     notify('Not enough stock!', 'warning');
                 }
             } else {
                 if (stock > 0) {
                     cart.push({ id: id, name: name, price: price, qty: 1, stock: stock });
+                    notify('Product added to cart.', 'success');
                 } else {
                     notify('Out of stock!', 'warning');
                 }
@@ -685,23 +725,47 @@
         });
 
         $('#confirmLipanaBtn').on('click', async function () {
+            const $btn = $(this);
+            setButtonLoading($btn, 'Sending...');
             try {
                 const data = await initiateLipanaPayment();
                 notify(data.message || 'Payment request sent.', 'success');
             } catch (error) {
                 notify(error.message, 'danger');
+            } finally {
+                clearButtonLoading($btn, '<i class="bi bi-phone"></i> Pay with Lipana');
             }
         });
 
         $('#verifyLipanaBtn').on('click', async function () {
-            const verifyButton = $(this).prop('disabled', true);
+            const $btn = $(this);
+            setButtonLoading($btn, 'Verifying...');
+            let verification = null;
             try {
-                const data = await verifyLipanaPayment();
-                notify(data.message, data.verified ? 'success' : 'info');
+                verification = await verifyLipanaPayment();
+                notify(verification.message, verification.verified ? 'success' : 'info');
             } catch (error) {
                 notify(error.message, 'danger');
             } finally {
-                verifyButton.prop('disabled', false);
+                clearButtonLoading($btn, 'Verify Payment');
+            }
+
+            // If verification succeeded, hide the Lipana modal and complete the sale automatically
+            if (verification && verification.verified) {
+                try {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        const lipanaModalEl = document.getElementById('lipanaModal');
+                        const lipanaModal = bootstrap.Modal.getOrCreateInstance(lipanaModalEl);
+                        lipanaModal.hide();
+                    } else {
+                        $('#lipanaModal').hide();
+                    }
+                } catch (e) {
+                    // non-fatal
+                }
+
+                // Trigger the complete sale flow
+                $('#completeSaleBtn').trigger('click');
             }
         });
 
@@ -753,16 +817,12 @@
                 saleData.payload_token = lipanaRequest.payload_token;
             }
 
-            completeSaleButton.data('submitting', true)
-                .prop('disabled', true)
-                .attr('aria-busy', 'true')
-                .html('<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Completing sale…');
+            completeSaleButton.data('submitting', true);
+            setButtonLoading(completeSaleButton, 'Completing sale…');
 
             const restoreCompleteSaleButton = function () {
-                completeSaleButton.data('submitting', false)
-                    .prop('disabled', false)
-                    .removeAttr('aria-busy')
-                    .html('<i class="bi bi-check-circle"></i> Complete Sale');
+                completeSaleButton.data('submitting', false);
+                clearButtonLoading(completeSaleButton, '<i class="bi bi-check-circle"></i> Complete Sale');
             };
 
             $.ajax({
